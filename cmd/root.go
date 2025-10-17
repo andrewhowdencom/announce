@@ -6,7 +6,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/BurntSushi/xdg"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -15,20 +17,12 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "app",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Use:   "announce",
+	Short: "A tool to send announcements to different platforms.",
+	Long: `A tool to send announcements to different platforms.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hello from cobra!")
-		fmt.Println("Source file:", viper.GetString("source.file"))
-	},
+This application is a CLI tool to send announcements to different platforms.
+Currently, it supports Slack.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -43,9 +37,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./config.yaml)")
-
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/announce/config.yaml)")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -54,12 +46,22 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search config in the current directory with name "config" (without extension).
-		viper.AddConfigPath(".")
-		viper.SetConfigName("config")
-		viper.SetConfigType("yaml")
+		// Find xdg config path.
+		paths := xdg.Paths{
+			XDGSuffix: "announce",
+		}
+		configPath, err := paths.ConfigFile("config.yaml")
+		if err != nil {
+			// if we can't find the config file, we'll just use the default values
+		} else {
+			// Search config in home directory with name ".announce" (without extension).
+			viper.AddConfigPath(filepath.Dir(configPath))
+			viper.SetConfigName(filepath.Base(configPath))
+			viper.SetConfigType("yaml")
+		}
 	}
 
+	viper.SetEnvPrefix("ANNOUNCE")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
