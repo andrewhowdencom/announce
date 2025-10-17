@@ -1,2 +1,5 @@
 source:
   file: "announcements.yaml"
+
+slack:
+  webhook_url: ""
