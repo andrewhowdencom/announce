@@ -1,6 +1,48 @@
 # Agent Instructions
 
+## CLI
+### Documentation
+
+Where an application has a CLI, it should be easily possible to either view directly or generate a comprehensive `man`
+page with clear examples of how to use this application.
+
+Additionally, the application commands and subcommands must clearly describe what each command does via the `--help`
+flag, ideally with examples.
+
 ## Configuration
+### Consumption
+
+Where we have configuration parameters, they should be accessible via:
+
+* Command Line Flag
+* Environment Variable (with a prefix)
+* File
+
+The library [spf13/viper] does this especially well. A concrete example might be for an API key for Slack ("abcde"), and the application
+might be called "Announce". The configuration should be suppliable via environment variabl
+
+```bash
+ANNOUNCE_SLACK_API_KEY="abcde" ./announce
+```
+
+Command line flag:
+
+```bash
+# Use dot notation to match what might exist in a file.
+./announce --slack.api.key="abcde"
+```
+
+And File:
+
+```yaml
+# Prefer child objects rather than using a underscore to specify configuration values.
+slack:
+  api:
+    key: abcde
+```
+
+[spf13/viper]: https://github.com/spf13/viper
+
 ### Path
 
 Where applications have configuration, they should store that configuration in a path that follows the XDG standards. The
