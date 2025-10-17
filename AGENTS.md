@@ -9,6 +9,16 @@ page with clear examples of how to use this application.
 Additionally, the application commands and subcommands must clearly describe what each command does via the `--help`
 flag, ideally with examples.
 
+### Interface
+
+Where there is a CLI, there should be top level commands that categorize and then commands that take an imperative
+action on the category, similar to how the Kubernetes CLI is structured. For example, a project that sends
+announcements might have the structure:
+
+```bash
+./announce slack post --channel "#foo"
+```
+
 ## Configuration
 ### Consumption
 
@@ -104,3 +114,13 @@ Co-authored-by: ANOTHER-NAME <ANOTHER-NAME@EXAMPLE.COM>"
 
 Complete with the line break before the "Co-authored-by" key/value pair. The format follows RFC 5322 for defining the
 display name / email pair.
+
+## Tests
+
+For just about all non-trivial changes, make sure you develop via "test driven design". This means:
+
+1. Write tests for the current behavior of the application
+2. Modify those tests so that they verify the new desired behavior of the application
+3. Modify the logic of the application based on your request, so it validates against those tests.
+4. Adjust either the application or the tests until the tests pass
+5. Publish the change.
