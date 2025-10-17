@@ -1,4 +1,4 @@
-module jules/app
+module github.com/andrewhowdencom/announce
 
 go 1.24.3
 
