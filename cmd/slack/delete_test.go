@@ -31,8 +31,8 @@ func TestDeleteCmd(t *testing.T) {
 	}
 	defer func() { NewSlackClient = oldNewSlackClient }()
 
-	// Set the bot token
-	viper.Set("slack.bot_token", "test-token")
+	// Set the app token
+	viper.Set("slack.app.token", "test-token")
 
 	// Redirect STDOUT
 	oldStdout := os.Stdout

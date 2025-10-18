@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package slack
 
 import "github.com/andrewhowdencom/announce/internal/clients/slack"

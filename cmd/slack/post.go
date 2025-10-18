@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package slack
 
 import (
@@ -29,12 +26,6 @@ Example:
 			return fmt.Errorf("failed to read message from STDIN: %w", err)
 		}
 
-		// Get the bot token from the configuration
-		botToken := viper.GetString("slack.bot_token")
-		if botToken == "" {
-			return fmt.Errorf("slack bot token is not configured")
-		}
-
 		// Get the channel ID from the flags
 		channelID, err := cmd.Flags().GetString("channel")
 		if err != nil {
@@ -42,7 +33,7 @@ Example:
 		}
 
 		// Create a new Slack client
-		client := NewSlackClient(botToken)
+		client := NewSlackClient(viper.GetString("slack.app.token"))
 
 		// Post the message to the Slack channel
 		timestamp, err := client.PostMessage(channelID, string(message))
@@ -57,6 +48,4 @@ Example:
 
 func init() {
 	PostCmd.Flags().String("channel", "", "Slack channel ID")
-	PostCmd.Flags().String("bot-token", "", "Slack bot token")
-	viper.BindPFlag("slack.bot_token", PostCmd.Flags().Lookup("bot-token"))
 }

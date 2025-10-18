@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package slack
 
 import (
@@ -21,12 +18,6 @@ This command deletes a message from a Slack channel given a channel ID and a mes
 Example:
   announce slack delete --channel C1234567890 --timestamp 1234567890.123456`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get the bot token from the configuration
-		botToken := viper.GetString("slack.bot_token")
-		if botToken == "" {
-			return fmt.Errorf("slack bot token is not configured")
-		}
-
 		// Get the channel ID from the flags
 		channelID, err := cmd.Flags().GetString("channel")
 		if err != nil {
@@ -40,7 +31,7 @@ Example:
 		}
 
 		// Create a new Slack client
-		client := NewSlackClient(botToken)
+		client := NewSlackClient(viper.GetString("slack.app.token"))
 
 		// Delete the message from the Slack channel
 		if err := client.DeleteMessage(channelID, timestamp); err != nil {
@@ -55,6 +46,4 @@ Example:
 func init() {
 	DeleteCmd.Flags().String("channel", "", "Slack channel ID")
 	DeleteCmd.Flags().String("timestamp", "", "Timestamp of the message to delete")
-	DeleteCmd.Flags().String("bot-token", "", "Slack bot token")
-	viper.BindPFlag("slack.bot_token", DeleteCmd.Flags().Lookup("bot-token"))
 }
