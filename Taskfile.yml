@@ -1,0 +1,13 @@
+version: '3'
+
+tasks:
+  build:
+    cmds:
+      - mkdir -p dist
+      - go build -o dist/app main.go
+    desc: 'Builds the application'
+
+  test:
+    cmds:
+      - go test ./...
+    desc: 'Runs all tests'
