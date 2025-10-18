@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPostCmd(t *testing.T) {
+func TestDeleteCmd(t *testing.T) {
 	// a mock slack client
 	mockClient := &MockSlackClient{
-		PostMessageFunc: func(channelID, text string) (string, error) {
+		DeleteMessageFunc: func(channelID, timestamp string) error {
 			assert.Equal(t, "C1234567890", channelID)
-			assert.Equal(t, "Hello, world!", text)
-			return "1234567890.123456", nil
+			assert.Equal(t, "1234567890.123456", timestamp)
+			return nil
 		},
 	}
 
@@ -34,28 +34,20 @@ func TestPostCmd(t *testing.T) {
 	// Set the bot token
 	viper.Set("slack.bot_token", "test-token")
 
-	// Redirect STDIN
-	oldStdin := os.Stdin
-	defer func() { os.Stdin = oldStdin }()
-	r, w, _ := os.Pipe()
-	os.Stdin = r
-	w.Write([]byte("Hello, world!"))
-	w.Close()
-
 	// Redirect STDOUT
 	oldStdout := os.Stdout
 	defer func() { os.Stdout = oldStdout }()
-	r, w, _ = os.Pipe()
+	r, w, _ := os.Pipe()
 	os.Stdout = w
 
 	// Run the command
-	PostCmd.SetArgs([]string{"--channel", "C1234567890"})
-	err := PostCmd.Execute()
+	DeleteCmd.SetArgs([]string{"--channel", "C1234567890", "--timestamp", "1234567890.123456"})
+	err := DeleteCmd.Execute()
 	assert.NoError(t, err)
 
 	// Check the output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
-	assert.Equal(t, "Message sent to Slack successfully with timestamp: 1234567890.123456\n", buf.String())
+	assert.Equal(t, "Message deleted from Slack successfully\n", buf.String())
 }

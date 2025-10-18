@@ -4,10 +4,8 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package slack
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -20,11 +18,10 @@ var PostCmd = &cobra.Command{
 	Short: "Post a message to a Slack channel",
 	Long: `Post a message to a Slack channel.
 
-This command reads a message from STDIN and posts it to a Slack channel
-configured via a webhook URL.
+This command reads a message from STDIN and posts it to a Slack channel.
 
 Example:
-  echo "Hello, world!" | announce slack post --webhook-url <your-webhook-url>`,
+  echo "Hello, world!" | announce slack post --channel C1234567890`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Read the message from STDIN
 		message, err := io.ReadAll(os.Stdin)
@@ -32,31 +29,34 @@ Example:
 			return fmt.Errorf("failed to read message from STDIN: %w", err)
 		}
 
-		// Get the webhook URL from the configuration
-		webhookURL := viper.GetString("slack.webhook_url")
-		if webhookURL == "" {
-			return fmt.Errorf("slack webhook URL is not configured")
+		// Get the bot token from the configuration
+		botToken := viper.GetString("slack.bot_token")
+		if botToken == "" {
+			return fmt.Errorf("slack bot token is not configured")
 		}
 
-		// Send the message to the webhook URL
-		payload := bytes.NewBufferString(fmt.Sprintf(`{"text": "%s"}`, string(message)))
-		resp, err := http.Post(webhookURL, "application/json", payload)
+		// Get the channel ID from the flags
+		channelID, err := cmd.Flags().GetString("channel")
+		if err != nil {
+			return err
+		}
+
+		// Create a new Slack client
+		client := NewSlackClient(botToken)
+
+		// Post the message to the Slack channel
+		timestamp, err := client.PostMessage(channelID, string(message))
 		if err != nil {
 			return fmt.Errorf("failed to send message to Slack: %w", err)
 		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("failed to send message to Slack: received status code %d", resp.StatusCode)
-		}
-
-		fmt.Println("Message sent to Slack successfully")
+		fmt.Printf("Message sent to Slack successfully with timestamp: %s\n", timestamp)
 		return nil
 	},
 }
 
 func init() {
-	PostCmd.Flags().String("webhook-url", "", "Slack webhook URL")
-	viper.BindPFlag("slack.webhook_url", PostCmd.Flags().Lookup("webhook-url"))
-	viper.SetDefault("slack.webhook_url", "")
+	PostCmd.Flags().String("channel", "", "Slack channel ID")
+	PostCmd.Flags().String("bot-token", "", "Slack bot token")
+	viper.BindPFlag("slack.bot_token", PostCmd.Flags().Lookup("bot-token"))
 }

@@ -18,4 +18,5 @@ var slackCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(slackCmd)
 	slackCmd.AddCommand(slack.PostCmd)
+	slackCmd.AddCommand(slack.DeleteCmd)
 }
