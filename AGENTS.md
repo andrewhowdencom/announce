@@ -1,5 +1,20 @@
 # Agent Instructions
 
+## Architecture
+### Dependency Management
+Where there are dependencies initialized, be sure to use an initializer which creates a new dependency with a series of sane
+defaults. Where there are requirements have them as normal, typed arguments but where there are "optional" arguments, allow
+overriding them with the "variadic argument" style used in Uber, or popularized by Dave Cheany.
+
+### Layout
+Where an application starts to become more complex (for example, includes clients, a datastore, keeps state or otherwise 
+non-trivial code), prefer to organize the application in the [hexagonal architecture] design popularized by alister cockburn.
+
+[hexagonal architecture]: https://alistair.cockburn.us/hexagonal-architecture
+
+## CI
+As a general rule, try and use GitHub actions for CI related tasks, as this repository is stored and used primarily in GitHub.
+
 ## CLI
 ### Documentation
 
@@ -72,6 +87,22 @@ git add --patch ./path/to/file
 
 Rather than just `git add ./path to file`.
 
+### Amending Commits
+
+Where there are multiple commits required for work, you can either:
+
+* **Create unique, well crafted commit messages for each line**; this is the ideal as it will give context to your 
+  decisions at multiple stages of this work. 
+* **Squash all commits together and summarize the work in one commit**; this is also fine as it will create a well
+  structured git history.
+
+Just don't create multiple "repeated commits" on a single branch. When you amend the commit, you'll need to
+force push it with:
+
+```
+git push --force-with-lease
+```
+
 ### Commit Styles
 
 In general, commits should follow the styleguide set out in "[What constitutes a 'Good Commit']".
@@ -115,6 +146,59 @@ Co-authored-by: ANOTHER-NAME <ANOTHER-NAME@EXAMPLE.COM>"
 Complete with the line break before the "Co-authored-by" key/value pair. The format follows RFC 5322 for defining the
 display name / email pair.
 
+## Task Runner
+
+For common tasks within the project (for example, running tests, builds etc) then please use [Taskfile] as the task 
+runner of choice. There are usually a few tasks I prefer to create
+
+1. `build`: Runs the compilation of the binary. 
+2. `test`: Runs all unit tests for the binary
+3. `lint`: Runs any lints that exist for the code in the binary
+4. `validate`: A combination of test, lint and other pre-checks that are useful to catch issues prior to commit
+
+[Taskfile]: https://taskfile.dev/
+
+## Languages
+### Go
+#### General Advice
+For writing Go code, ensure that you follow out the best practices described by the [effective go] documentation, 
+and prefer convententions from the standard library wherever possible.
+
+Where I want to release an application to GitHub, prefer to use the [open source goreleaser] to run these releases.
+Do a cross compilation build, and upload binaries suitable for the common platforms.
+
+[effective go]: https://go.dev/doc/effective_go
+[the open source goreleaser]: https://goreleaser.com/
+
+#### Error Handling
+
+For packages that are reused in the application (e.g. anything in `internal`), it is better to "wrap" errors that 
+are returned upstream so that unit tests, and if necessary, business logic, can examine them. For example, 
+instead of code that does:
+
+```go
+func DoSomething() (string, error) {
+
+	// Assume this error was returned from a client
+	return "", fmt.Errorf("upstream error")
+}
+```
+
+Define a new error value at the top of the package, and use that to represent this error. For example, 
+
+```go
+// Err* are common errors
+var (
+	ErrUpstreamFailure = errors.New("dependency failed")
+)
+
+func DoSomething() (string, error) {
+
+	// Assume this error was returned from a client
+	return "", fmt.Errorf("%w: %s", ErrUpstreamFailure, fmt.Errorf("upstream error"))
+}
+```
+
 ## Tests
 
 For just about all non-trivial changes, make sure you develop via "test driven design". This means:
@@ -124,3 +208,15 @@ For just about all non-trivial changes, make sure you develop via "test driven d
 3. Modify the logic of the application based on your request, so it validates against those tests.
 4. Adjust either the application or the tests until the tests pass
 5. Publish the change.
+
+## Tools
+
+Make sure you have any tools required to build, compile or otherwise maintain the application by reviewing the
+file called README.md for instructions on the installation of any tools.
+
+Common tools include things like:
+
+* git
+* [task]
+
+[task]: https://taskfile.dev/docs/installation
