@@ -4,7 +4,7 @@ tasks:
   build:
     cmds:
       - mkdir -p dist
-      - go build -o dist/app main.go
+      - go build -o dist/announce main.go
     desc: 'Builds the application'
 
   test:
