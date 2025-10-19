@@ -1,0 +1,10 @@
+[Unit]
+Description=Announce Service
+After=network.target
+
+[Service]
+ExecStart=%h/.local/bin/announce
+Restart=always
+
+[Install]
+WantedBy=default.target
