@@ -36,15 +36,23 @@ var SendDueCmd = &cobra.Command{
 		for _, a := range announcements {
 			if a.Status == datastore.StatusPending && time.Now().After(a.ScheduledAt) {
 				fmt.Printf("Sending announcement %s... ", a.ID)
-				timestamp, err := client.PostMessage(a.ChannelID, a.Content)
+
+				channelID, err := client.GetChannelID(a.ChannelID)
 				if err != nil {
 					a.Status = datastore.StatusFailed
-					fmt.Printf("failed: %v\n", err)
+					fmt.Printf("failed to get channel ID: %v\n", err)
 				} else {
-					a.Status = datastore.StatusSent
-					a.Timestamp = timestamp
-					fmt.Println("done")
+					timestamp, err := client.PostMessage(channelID, a.Content)
+					if err != nil {
+						a.Status = datastore.StatusFailed
+						fmt.Printf("failed: %v\n", err)
+					} else {
+						a.Status = datastore.StatusSent
+						a.Timestamp = timestamp
+						fmt.Println("done")
+					}
 				}
+
 				if err := store.UpdateAnnouncement(a); err != nil {
 					return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
 				}
