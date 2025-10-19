@@ -15,7 +15,7 @@ import (
 var workerCmd = &cobra.Command{
 	Use:   "worker",
 	Short: "Run the worker to send announcements",
-	Long:  `Run the worker to send announcements.`, // Corrected: Removed unnecessary escaping of backticks
+	Long:  `Run the worker to send announcements.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := datastore.NewStore()
 		if err != nil {
@@ -52,35 +52,42 @@ func runWorker(store datastore.Storer, slackClient slack.Client) error {
 }
 
 func processAnnouncement(store datastore.Storer, slackClient slack.Client, a *datastore.Announcement) error {
-	if !shouldSend(a) {
+	if !((a.Status == datastore.StatusPending || a.Status == datastore.StatusRecurring) && time.Now().After(a.ScheduledAt)) {
 		return nil
 	}
 
 	fmt.Printf("Sending announcement %s... ", a.ID)
 
 	timestamp, err := slackClient.PostMessage(a.ChannelID, a.Content)
+	sentMessage := &datastore.SentMessage{
+		AnnouncementID: a.ID,
+		Timestamp:      timestamp,
+	}
+
 	if err != nil {
-		a.Status = datastore.StatusFailed
+		sentMessage.Status = datastore.StatusFailed
 		fmt.Printf("failed: %v\n", err)
 	} else {
-		if a.Recurring {
-			reschedule(a)
-		} else {
-			a.Status = datastore.StatusSent
-			a.Timestamp = timestamp
-			fmt.Println("done")
+		sentMessage.Status = datastore.StatusSent
+		fmt.Println("done")
+	}
+
+	if err := store.AddSentMessage(sentMessage); err != nil {
+		return fmt.Errorf("failed to add sent message: %w", err)
+	}
+
+	if a.Recurring {
+		reschedule(a)
+		if err := store.UpdateAnnouncement(a); err != nil {
+			return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
+		}
+	} else {
+		if err := store.DeleteAnnouncement(a.ID); err != nil {
+			return fmt.Errorf("failed to delete announcement %s: %w", a.ID, err)
 		}
 	}
 
-	if err := store.UpdateAnnouncement(a); err != nil {
-		return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
-	}
-
 	return nil
-}
-
-func shouldSend(a *datastore.Announcement) bool {
-	return (a.Status == datastore.StatusPending || a.Status == datastore.StatusRecurring) && time.Now().After(a.ScheduledAt)
 }
 
 func reschedule(a *datastore.Announcement) {
@@ -92,8 +99,6 @@ func reschedule(a *datastore.Announcement) {
 		fmt.Printf("failed to parse cron: %v\n", err)
 	} else {
 		a.ScheduledAt = schedule.Next(time.Now())
-		a.Status = datastore.StatusRecurring
-		fmt.Println("done, rescheduled")
 	}
 }
 

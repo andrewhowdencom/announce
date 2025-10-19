@@ -11,6 +11,7 @@ import (
 
 // The name of the bucket where announcements will be stored.
 var announcementsBucket = []byte("announcements")
+var sentMessagesBucket = []byte("sent_messages")
 
 // Status represents the status of an announcement.
 type Status string
@@ -35,9 +36,16 @@ type Announcement struct {
 	ChannelID   string    `json:"channel_id"`
 	ScheduledAt time.Time `json:"scheduled_at"`
 	Status      Status    `json:"status"`
-	Timestamp   string    `json:"timestamp,omitempty"`
 	Cron        string    `json:"cron,omitempty"`
 	Recurring   bool      `json:"recurring,omitempty"`
+}
+
+// SentMessage represents a message that has been sent.
+type SentMessage struct {
+	ID             string    `json:"id"`
+	AnnouncementID string    `json:"announcement_id"`
+	Timestamp      string    `json:"timestamp"`
+	Status         Status    `json:"status"`
 }
 
 // Storer is an interface that defines the methods for interacting with the datastore.
@@ -47,6 +55,12 @@ type Storer interface {
 	ListAnnouncements() ([]*Announcement, error)
 	UpdateAnnouncement(a *Announcement) error
 	DeleteAnnouncement(id string) error
+
+	// AddSentMessage adds a new sent message to the datastore.
+	AddSentMessage(sm *SentMessage) error
+	// ListSentMessages lists all sent messages from the datastore.
+	ListSentMessages() ([]*SentMessage, error)
+
 	Close() error
 }
 
@@ -69,6 +83,10 @@ func NewStore() (Storer, error) {
 
 	err = db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(announcementsBucket)
+		if err != nil {
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists(sentMessagesBucket)
 		return err
 	})
 	if err != nil {
@@ -156,4 +174,39 @@ func (s *Store) DeleteAnnouncement(id string) error {
 		b := tx.Bucket(announcementsBucket)
 		return b.Delete([]byte(id))
 	})
+}
+
+// AddSentMessage adds a new sent message to the store.
+func (s *Store) AddSentMessage(sm *SentMessage) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(sentMessagesBucket)
+		id, _ := b.NextSequence()
+		sm.ID = fmt.Sprintf("%d", id)
+
+		buf, err := json.Marshal(sm)
+		if err != nil {
+			return fmt.Errorf("failed to marshal sent message: %w", err)
+		}
+		return b.Put([]byte(sm.ID), buf)
+	})
+}
+
+// ListSentMessages retrieves all sent messages from the store.
+func (s *Store) ListSentMessages() ([]*SentMessage, error) {
+	var sentMessages []*SentMessage
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(sentMessagesBucket)
+		return b.ForEach(func(k, v []byte) error {
+			var sm SentMessage
+			if err := json.Unmarshal(v, &sm); err != nil {
+				return fmt.Errorf("failed to unmarshal sent message: %w", err)
+			}
+			sentMessages = append(sentMessages, &sm)
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sent messages: %w", err)
+	}
+	return sentMessages, nil
 }
