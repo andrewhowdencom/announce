@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andrewhowdencom/announce/internal/clients/slack"
 	"github.com/andrewhowdencom/announce/internal/datastore"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -29,7 +30,7 @@ var SendDueCmd = &cobra.Command{
 		}
 
 		// Create a new Slack client
-		client := NewSlackClient(viper.GetString("slack.app.token"))
+		client := slack.NewClient(viper.GetString("slack.app.token"))
 
 		// Iterate over the announcements and send the due ones
 		for _, a := range announcements {

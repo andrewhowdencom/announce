@@ -1,39 +1,43 @@
 package slack
 
 import (
+	"fmt"
+
 	"github.com/slack-go/slack"
 )
 
-// SlackClient defines the interface for interacting with Slack.
-type SlackClient interface {
+// Client is an interface that defines the methods for interacting with the Slack API.
+type Client interface {
 	PostMessage(channelID, text string) (string, error)
-	DeleteMessage(channelID, timestamp string) error
 }
 
-// client is a wrapper around the slack client that implements SlackClient
+// client is the concrete implementation of the Client interface.
 type client struct {
 	api *slack.Client
 }
 
-// NewClient creates a new slack client
-func NewClient(token string) SlackClient {
-	api := slack.New(token)
-	return &client{api: api}
+// NewClient creates a new Slack client.
+func NewClient(token string) Client {
+	return &client{
+		api: slack.New(token),
+	}
 }
 
-// PostMessage sends a message to a slack channel
+// PostMessage sends a message to a Slack channel.
 func (c *client) PostMessage(channelID, text string) (string, error) {
-	// The Slack API returns the channel ID, timestamp, and an error.
-	// We are only interested in the timestamp, which is needed for deleting messages.
 	_, timestamp, err := c.api.PostMessage(channelID, slack.MsgOptionText(text, false))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to post message: %w", err)
 	}
 	return timestamp, nil
 }
 
-// DeleteMessage deletes a message from a slack channel
-func (c *client) DeleteMessage(channelID, timestamp string) error {
-	_, _, err := c.api.DeleteMessage(channelID, timestamp)
-	return err
+// MockClient is a mock implementation of the Client interface for testing.
+type MockClient struct {
+	PostMessageFunc func(channelID, text string) (string, error)
+}
+
+// PostMessage calls the PostMessageFunc.
+func (m *MockClient) PostMessage(channelID, text string) (string, error) {
+	return m.PostMessageFunc(channelID, text)
 }
