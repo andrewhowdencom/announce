@@ -27,6 +27,8 @@ const (
 	StatusDeleted Status = "deleted"
 	// StatusRecurring means the announcement is recurring.
 	StatusRecurring Status = "recurring"
+	// StatusProcessed means the announcement has been processed.
+	StatusProcessed Status = "processed"
 )
 
 // Announcement represents a message to be sent to a destination.

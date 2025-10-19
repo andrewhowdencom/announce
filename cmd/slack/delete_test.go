@@ -7,57 +7,20 @@ import (
 	"github.com/andrewhowdencom/announce/internal/clients/slack"
 	"github.com/andrewhowdencom/announce/internal/datastore"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDoDelete_SoftDelete(t *testing.T) {
+func TestDoDelete_Sent(t *testing.T) {
 	a := &datastore.Announcement{
 		ID:        "1",
 		Content:   "test",
 		ChannelID: "test",
 		Status:    datastore.StatusSent,
-		Timestamp: "12345",
 	}
 
-	store := &datastore.MockStore{
-		GetAnnouncementFunc: func(id string) (*datastore.Announcement, error) {
-			if id == "1" {
-				return a, nil
-			}
-			return nil, fmt.Errorf("announcement not found")
-		},
-		UpdateAnnouncementFunc: func(updatedAnnouncement *datastore.Announcement) error {
-			a = updatedAnnouncement
-			return nil
-		},
-	}
-
-	client := &slack.MockClient{
-		GetChannelIDFunc: func(channelName string) (string, error) {
-			return "test", nil
-		},
-		DeleteMessageFunc: func(channelID, timestamp string) error {
-			return nil
-		},
-	}
-	viper.Set("slack.app.token", "test")
-
-	if err := doDelete(store, client, "1"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if a.Status != datastore.StatusDeleted {
-		t.Errorf("expected status to be deleted, but got %s", a.Status)
-	}
-}
-
-func TestDoDelete_HardDelete(t *testing.T) {
-	a := &datastore.Announcement{
-		ID:        "1",
-		Content:   "test",
-		ChannelID: "test",
-		Status:    datastore.StatusPending,
-	}
-	deleted := false
+	deleteAnnouncementCalled := false
+	deleteSentMessageCalled := false
+	deleteMessageCalled := false
 
 	store := &datastore.MockStore{
 		GetAnnouncementFunc: func(id string) (*datastore.Announcement, error) {
@@ -67,34 +30,55 @@ func TestDoDelete_HardDelete(t *testing.T) {
 			return nil, fmt.Errorf("announcement not found")
 		},
 		DeleteAnnouncementFunc: func(id string) error {
-			if id == "1" {
-				deleted = true
-				return nil
-			}
-			return fmt.Errorf("announcement not found")
+			deleteAnnouncementCalled = true
+			return nil
+		},
+		ListSentMessagesByAnnouncementIDFunc: func(announcementID string) ([]*datastore.SentMessage, error) {
+			return []*datastore.SentMessage{
+				{
+					ID:             "1",
+					AnnouncementID: "1",
+					Timestamp:      "12345",
+					Status:         datastore.StatusSent,
+				},
+			}, nil
+		},
+		DeleteSentMessageFunc: func(id string) error {
+			deleteSentMessageCalled = true
+			return nil
+		},
+	}
+
+	client := &slack.MockClient{
+		GetChannelIDFunc: func(channelName string) (string, error) {
+			return "test", nil
+		},
+		DeleteMessageFunc: func(channelID, timestamp string) error {
+			deleteMessageCalled = true
+			return nil
 		},
 	}
 	viper.Set("slack.app.token", "test")
 
-	client := &slack.MockClient{}
+	err := doDelete(store, client, "1")
+	assert.NoError(t, err)
 
-	if err := doDelete(store, client, "1"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !deleted {
-		t.Error("expected announcement to be deleted, but it wasn't")
-	}
+	assert.True(t, deleteAnnouncementCalled)
+	assert.True(t, deleteSentMessageCalled)
+	assert.True(t, deleteMessageCalled)
 }
 
-func TestDoDelete_ResolvesChannelName(t *testing.T) {
+func TestDoDelete_Pending(t *testing.T) {
 	a := &datastore.Announcement{
 		ID:        "1",
 		Content:   "test",
-		ChannelID: "#general",
-		Status:    datastore.StatusSent,
-		Timestamp: "12345",
+		ChannelID: "test",
+		Status:    datastore.StatusPending,
 	}
+
+	deleteAnnouncementCalled := false
+	deleteSentMessageCalled := false
+	deleteMessageCalled := false
 
 	store := &datastore.MockStore{
 		GetAnnouncementFunc: func(id string) (*datastore.Announcement, error) {
@@ -103,33 +87,34 @@ func TestDoDelete_ResolvesChannelName(t *testing.T) {
 			}
 			return nil, fmt.Errorf("announcement not found")
 		},
-		UpdateAnnouncementFunc: func(updatedAnnouncement *datastore.Announcement) error {
-			a = updatedAnnouncement
+		DeleteAnnouncementFunc: func(id string) error {
+			deleteAnnouncementCalled = true
+			return nil
+		},
+		ListSentMessagesByAnnouncementIDFunc: func(announcementID string) ([]*datastore.SentMessage, error) {
+			return []*datastore.SentMessage{}, nil
+		},
+		DeleteSentMessageFunc: func(id string) error {
+			deleteSentMessageCalled = true
 			return nil
 		},
 	}
 
 	client := &slack.MockClient{
 		GetChannelIDFunc: func(channelName string) (string, error) {
-			if channelName == "#general" {
-				return "C1234567890", nil
-			}
-			return "", fmt.Errorf("channel not found")
+			return "test", nil
 		},
 		DeleteMessageFunc: func(channelID, timestamp string) error {
-			if channelID != "C1234567890" {
-				return fmt.Errorf("expected channel ID to be C1234567890, but got %s", channelID)
-			}
+			deleteMessageCalled = true
 			return nil
 		},
 	}
 	viper.Set("slack.app.token", "test")
 
-	if err := doDelete(store, client, "1"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	err := doDelete(store, client, "1")
+	assert.NoError(t, err)
 
-	if a.Status != datastore.StatusDeleted {
-		t.Errorf("expected status to be deleted, but got %s", a.Status)
-	}
+	assert.True(t, deleteAnnouncementCalled)
+	assert.False(t, deleteSentMessageCalled)
+	assert.False(t, deleteMessageCalled)
 }

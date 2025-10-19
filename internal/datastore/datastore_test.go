@@ -1,32 +1,19 @@
 package datastore
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.etcd.io/bbolt"
 )
 
 func TestStore(t *testing.T) {
-	// Create a temporary database for testing
-	f, err := ioutil.TempFile("", "test.db")
+	// Create a new store for testing
+	store, err := NewStore()
 	assert.NoError(t, err)
-	defer os.Remove(f.Name())
-
-	db, err := bbolt.Open(f.Name(), 0600, nil)
-	assert.NoError(t, err)
-
-	err = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(announcementsBucket)
-		return err
-	})
-	assert.NoError(t, err)
-
-	store := &Store{db: db}
 	defer store.Close()
+	defer os.RemoveAll(".config/announce")
 
 	// Test AddAnnouncement
 	a := &Announcement{
@@ -45,7 +32,7 @@ func TestStore(t *testing.T) {
 	assert.Len(t, announcements, 1)
 	assert.Equal(t, a.Content, announcements[0].Content)
 
-	// Test UpdateAnnouncement
+	// Test UpdateAnnouncement to StatusSent
 	announcements[0].Status = StatusSent
 	err = store.UpdateAnnouncement(announcements[0])
 	assert.NoError(t, err)
@@ -53,6 +40,45 @@ func TestStore(t *testing.T) {
 	announcements, err = store.ListAnnouncements()
 	assert.NoError(t, err)
 	assert.Equal(t, StatusSent, announcements[0].Status)
+
+	// Test UpdateAnnouncement to StatusProcessed
+	announcements[0].Status = StatusProcessed
+	err = store.UpdateAnnouncement(announcements[0])
+	assert.NoError(t, err)
+
+	processedAnnouncement, err := store.GetAnnouncement(announcements[0].ID)
+	assert.NoError(t, err)
+	assert.Equal(t, StatusProcessed, processedAnnouncement.Status)
+
+	// Test AddSentMessage
+	sm := &SentMessage{
+		AnnouncementID: a.ID,
+		Timestamp:      "12345",
+		Status:         StatusSent,
+	}
+	err = store.AddSentMessage(sm)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, sm.ID)
+
+	// Test ListSentMessages
+	sentMessages, err := store.ListSentMessages()
+	assert.NoError(t, err)
+	assert.Len(t, sentMessages, 1)
+	assert.Equal(t, sm.AnnouncementID, sentMessages[0].AnnouncementID)
+
+	// Test ListSentMessagesByAnnouncementID
+	sentMessages, err = store.ListSentMessagesByAnnouncementID(a.ID)
+	assert.NoError(t, err)
+	assert.Len(t, sentMessages, 1)
+	assert.Equal(t, sm.AnnouncementID, sentMessages[0].AnnouncementID)
+
+	// Test DeleteSentMessage
+	err = store.DeleteSentMessage(sm.ID)
+	assert.NoError(t, err)
+
+	sentMessages, err = store.ListSentMessages()
+	assert.NoError(t, err)
+	assert.Len(t, sentMessages, 0)
 
 	// Test DeleteAnnouncement
 	err = store.DeleteAnnouncement(announcements[0].ID)

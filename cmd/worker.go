@@ -82,8 +82,9 @@ func processAnnouncement(store datastore.Storer, slackClient slack.Client, a *da
 			return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
 		}
 	} else {
-		if err := store.DeleteAnnouncement(a.ID); err != nil {
-			return fmt.Errorf("failed to delete announcement %s: %w", a.ID, err)
+		a.Status = datastore.StatusProcessed
+		if err := store.UpdateAnnouncement(a); err != nil {
+			return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
 		}
 	}
 
