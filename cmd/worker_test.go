@@ -1,25 +1,27 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
-package slack
+package cmd
 
 import (
 	"testing"
+	"time"
 
 	"github.com/andrewhowdencom/announce/internal/clients/slack"
 	"github.com/andrewhowdencom/announce/internal/datastore"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDoWatch(t *testing.T) {
+func TestRunWorker(t *testing.T) {
 	announcements := []*datastore.Announcement{
 		{
-			ID:        "1",
-			Content:   "test",
-			ChannelID: "test",
-			Status:    datastore.StatusPending,
+			ID:          "1",
+			Content:     "test",
+			ChannelID:   "test",
+			Status:      datastore.StatusPending,
+			ScheduledAt: time.Now().Add(-1 * time.Hour),
 		},
 	}
+
+	addSentMessageCalled := false
 
 	store := &datastore.MockStore{
 		ListAnnouncementsFunc: func() ([]*datastore.Announcement, error) {
@@ -27,6 +29,10 @@ func TestDoWatch(t *testing.T) {
 		},
 		UpdateAnnouncementFunc: func(a *datastore.Announcement) error {
 			announcements[0] = a
+			return nil
+		},
+		AddSentMessageFunc: func(sm *datastore.SentMessage) error {
+			addSentMessageCalled = true
 			return nil
 		},
 	}
@@ -39,11 +45,9 @@ func TestDoWatch(t *testing.T) {
 
 	viper.Set("slack.app.token", "test")
 
-	if err := doWatch(store, slackClient); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	err := runWorker(store, slackClient)
+	assert.NoError(t, err)
 
-	if announcements[0].Status != datastore.StatusSent {
-		t.Errorf("expected status to be sent, but got %s", announcements[0].Status)
-	}
+	assert.Equal(t, datastore.StatusProcessed, announcements[0].Status)
+	assert.True(t, addSentMessageCalled)
 }
