@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/andrewhowdencom/announce/cmd/slack"
+	"github.com/andrewhowdencom/announce/cmd/slack/recurring"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -30,6 +31,9 @@ func init() {
 	slackCmd.AddCommand(slack.SendDueCmd)
 	slackCmd.AddCommand(slack.WatchCmd)
 	slackCmd.AddCommand(slack.DeleteCmd)
+	slackCmd.AddCommand(slack.RecurringCmd)
+
+	slack.RecurringCmd.AddCommand(recurring.ListCmd)
 
 	slackCmd.PersistentFlags().String("app-token", "", "Slack app token")
 	viper.BindPFlag("slack.app.token", slackCmd.PersistentFlags().Lookup("app-token"))

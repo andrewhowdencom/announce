@@ -1,40 +1,41 @@
-package db
+package recurring
 
 import (
 	"fmt"
 	"os"
-	"text/tabwriter"
 
 	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
 // ListCmd represents the list command
 var ListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all scheduled announcements",
-	Long:  `List all scheduled announcements.`,
+	Short: "List all recurring announcements",
+	Long:  `List all recurring announcements.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Create a new datastore
 		store, err := datastore.NewStore()
 		if err != nil {
 			return fmt.Errorf("failed to create datastore: %w", err)
 		}
 		defer store.Close()
 
-		// List all announcements
 		announcements, err := store.ListAnnouncements()
 		if err != nil {
 			return fmt.Errorf("failed to list announcements: %w", err)
 		}
 
-		// Print the announcements in a table
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "ID\tChannel\tStatus\tScheduled At\tCron\tRecurring\tContent")
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header([]string{"ID", "Channel ID", "Cron", "Scheduled At", "Status"})
+
 		for _, a := range announcements {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\t%q\n", a.ID, a.ChannelID, a.Status, a.ScheduledAt.Format("2006-01-02 15:04:05"), a.Cron, a.Recurring, a.Content)
+			if a.Recurring {
+				table.Append([]string{a.ID, a.ChannelID, a.Cron, a.ScheduledAt.String(), string(a.Status)})
+			}
 		}
-		w.Flush()
+
+		table.Render()
 
 		return nil
 	},

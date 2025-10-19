@@ -24,6 +24,8 @@ const (
 	StatusFailed Status = "failed"
 	// StatusDeleted means the announcement has been deleted.
 	StatusDeleted Status = "deleted"
+	// StatusRecurring means the announcement is recurring.
+	StatusRecurring Status = "recurring"
 )
 
 // Announcement represents a message to be sent to a destination.
@@ -34,6 +36,8 @@ type Announcement struct {
 	ScheduledAt time.Time `json:"scheduled_at"`
 	Status      Status    `json:"status"`
 	Timestamp   string    `json:"timestamp,omitempty"`
+	Cron        string    `json:"cron,omitempty"`
+	Recurring   bool      `json:"recurring,omitempty"`
 }
 
 // Storer is an interface that defines the methods for interacting with the datastore.

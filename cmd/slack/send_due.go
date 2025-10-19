@@ -6,6 +6,7 @@ import (
 
 	"github.com/andrewhowdencom/announce/internal/clients/slack"
 	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,8 +35,8 @@ var SendDueCmd = &cobra.Command{
 
 		// Iterate over the announcements and send the due ones
 		for _, a := range announcements {
-			if a.Status == datastore.StatusPending && time.Now().After(a.ScheduledAt) {
-				fmt.Printf("Sending announcement %s... ", a.ID)
+			if (a.Status == datastore.StatusPending || a.Status == datastore.StatusRecurring) && time.Now().After(a.ScheduledAt) {
+				fmt.Printf("Sending announcement %s... ", a.ID) // Use raw string literal for the format string
 
 				channelID, err := client.GetChannelID(a.ChannelID)
 				if err != nil {
@@ -47,9 +48,23 @@ var SendDueCmd = &cobra.Command{
 						a.Status = datastore.StatusFailed
 						fmt.Printf("failed: %v\n", err)
 					} else {
-						a.Status = datastore.StatusSent
-						a.Timestamp = timestamp
-						fmt.Println("done")
+						if a.Recurring {
+							parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+							schedule, err := parser.Parse(a.Cron)
+							if err != nil {
+								// If the cron is invalid, mark as failed
+								a.Status = datastore.StatusFailed
+								fmt.Printf("failed to parse cron: %v\n", err)
+							} else {
+								a.ScheduledAt = schedule.Next(time.Now())
+								a.Status = datastore.StatusRecurring
+								fmt.Println("done, rescheduled")
+							}
+						} else {
+							a.Status = datastore.StatusSent
+							a.Timestamp = timestamp
+							fmt.Println("done")
+						}
 					}
 				}
 

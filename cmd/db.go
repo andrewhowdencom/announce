@@ -18,5 +18,4 @@ var dbCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(dbCmd)
 	dbCmd.AddCommand(db.ListCmd)
-	dbCmd.AddCommand(db.DeleteCmd)
 }
