@@ -3,47 +3,44 @@ package slack
 import (
 	"fmt"
 
+	"github.com/andrewhowdencom/announce/internal/datastore"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // DeleteCmd represents the delete command
 var DeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete a message from a Slack channel",
-	Long: `Delete a message from a Slack channel.
+	Short: "Delete an announcement from the datastore",
+	Long: `Delete an announcement from the datastore.
 
-This command deletes a message from a Slack channel given a channel ID and a message timestamp.
+This command deletes an announcement from the datastore given an announcement ID.
 
 Example:
-  announce slack delete --channel C1234567890 --timestamp 1234567890.123456`,
+  announce slack delete --id 1`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get the channel ID from the flags
-		channelID, err := cmd.Flags().GetString("channel")
+		// Get the ID from the flags
+		id, err := cmd.Flags().GetString("id")
 		if err != nil {
 			return err
 		}
 
-		// Get the timestamp from the flags
-		timestamp, err := cmd.Flags().GetString("timestamp")
+		// Create a new datastore
+		store, err := datastore.NewStore()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create datastore: %w", err)
+		}
+		defer store.Close()
+
+		// Delete the announcement from the datastore
+		if err := store.DeleteAnnouncement(id); err != nil {
+			return fmt.Errorf("failed to delete announcement: %w", err)
 		}
 
-		// Create a new Slack client
-		client := NewSlackClient(viper.GetString("slack.app.token"))
-
-		// Delete the message from the Slack channel
-		if err := client.DeleteMessage(channelID, timestamp); err != nil {
-			return fmt.Errorf("failed to delete message from Slack: %w", err)
-		}
-
-		fmt.Println("Message deleted from Slack successfully")
+		fmt.Println("Announcement deleted successfully")
 		return nil
 	},
 }
 
 func init() {
-	DeleteCmd.Flags().String("channel", "", "Slack channel ID")
-	DeleteCmd.Flags().String("timestamp", "", "Timestamp of the message to delete")
+	DeleteCmd.Flags().String("id", "", "ID of the announcement to delete")
 }

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BurntSushi/xdg"
+	"github.com/adrg/xdg"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -47,10 +47,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find xdg config path.
-		paths := xdg.Paths{
-			XDGSuffix: "announce",
-		}
-		configPath, err := paths.ConfigFile("config.yaml")
+		configPath, err := xdg.ConfigFile("announce/config.yaml")
 		if err != nil {
 			// if we can't find the config file, we'll just use the default values
 		} else {
