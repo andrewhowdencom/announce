@@ -22,6 +22,8 @@ const (
 	StatusSent Status = "sent"
 	// StatusFailed means the announcement failed to send.
 	StatusFailed Status = "failed"
+	// StatusDeleted means the announcement has been deleted.
+	StatusDeleted Status = "deleted"
 )
 
 // Announcement represents a message to be sent to a destination.
@@ -37,6 +39,7 @@ type Announcement struct {
 // Storer is an interface that defines the methods for interacting with the datastore.
 type Storer interface {
 	AddAnnouncement(a *Announcement) error
+	GetAnnouncement(id string) (*Announcement, error)
 	ListAnnouncements() ([]*Announcement, error)
 	UpdateAnnouncement(a *Announcement) error
 	DeleteAnnouncement(id string) error
@@ -121,6 +124,26 @@ func (s *Store) UpdateAnnouncement(a *Announcement) error {
 		}
 		return b.Put([]byte(a.ID), buf)
 	})
+}
+
+// GetAnnouncement retrieves a single announcement from the store.
+func (s *Store) GetAnnouncement(id string) (*Announcement, error) {
+	var a *Announcement
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(announcementsBucket)
+		v := b.Get([]byte(id))
+		if v == nil {
+			return fmt.Errorf("announcement not found")
+		}
+		if err := json.Unmarshal(v, &a); err != nil {
+			return fmt.Errorf("failed to unmarshal announcement: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
 // DeleteAnnouncement removes an announcement from the store.

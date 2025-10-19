@@ -3,6 +3,7 @@ package datastore
 // MockStore is a mock implementation of the Store for testing.
 type MockStore struct {
 	AddAnnouncementFunc    func(*Announcement) error
+	GetAnnouncementFunc    func(string) (*Announcement, error)
 	ListAnnouncementsFunc  func() ([]*Announcement, error)
 	UpdateAnnouncementFunc func(*Announcement) error
 	DeleteAnnouncementFunc func(string) error
@@ -12,6 +13,11 @@ type MockStore struct {
 // AddAnnouncement calls the AddAnnouncementFunc.
 func (m *MockStore) AddAnnouncement(a *Announcement) error {
 	return m.AddAnnouncementFunc(a)
+}
+
+// GetAnnouncement calls the GetAnnouncementFunc.
+func (m *MockStore) GetAnnouncement(id string) (*Announcement, error) {
+	return m.GetAnnouncementFunc(id)
 }
 
 // ListAnnouncements calls the ListAnnouncementsFunc.
