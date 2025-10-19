@@ -26,7 +26,9 @@ var slackCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(slackCmd)
-	slackCmd.AddCommand(slack.PostCmd)
+	slackCmd.AddCommand(slack.ScheduleCmd)
+	slackCmd.AddCommand(slack.ListCmd)
+	slackCmd.AddCommand(slack.SendDueCmd)
 	slackCmd.AddCommand(slack.DeleteCmd)
 
 	slackCmd.PersistentFlags().String("app-token", "", "Slack app token")
