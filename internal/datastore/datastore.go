@@ -34,13 +34,22 @@ type Announcement struct {
 	Timestamp   string    `json:"timestamp,omitempty"`
 }
 
+// Storer is an interface that defines the methods for interacting with the datastore.
+type Storer interface {
+	AddAnnouncement(a *Announcement) error
+	ListAnnouncements() ([]*Announcement, error)
+	UpdateAnnouncement(a *Announcement) error
+	DeleteAnnouncement(id string) error
+	Close() error
+}
+
 // Store manages the persistence of announcements.
 type Store struct {
 	db *bbolt.DB
 }
 
 // NewStore creates a new Store and initializes the database.
-func NewStore() (*Store, error) {
+func NewStore() (Storer, error) {
 	dbPath, err := xdg.DataFile("announce/announce.db")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get db path: %w", err)
