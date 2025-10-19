@@ -133,7 +133,7 @@ func (s *Store) GetAnnouncement(id string) (*Announcement, error) {
 		b := tx.Bucket(announcementsBucket)
 		v := b.Get([]byte(id))
 		if v == nil {
-			return fmt.Errorf("announcement not found")
+			return ErrNotFound
 		}
 		if err := json.Unmarshal(v, &a); err != nil {
 			return fmt.Errorf("failed to unmarshal announcement: %w", err)
