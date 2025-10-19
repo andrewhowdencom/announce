@@ -60,6 +60,10 @@ type Storer interface {
 	AddSentMessage(sm *SentMessage) error
 	// ListSentMessages lists all sent messages from the datastore.
 	ListSentMessages() ([]*SentMessage, error)
+	// ListSentMessagesByAnnouncementID lists all sent messages for a given announcement ID.
+	ListSentMessagesByAnnouncementID(announcementID string) ([]*SentMessage, error)
+	// DeleteSentMessage deletes a sent message from the datastore.
+	DeleteSentMessage(id string) error
 
 	Close() error
 }
@@ -209,4 +213,34 @@ func (s *Store) ListSentMessages() ([]*SentMessage, error) {
 		return nil, fmt.Errorf("failed to list sent messages: %w", err)
 	}
 	return sentMessages, nil
+}
+
+// ListSentMessagesByAnnouncementID retrieves all sent messages for a given announcement ID from the store.
+func (s *Store) ListSentMessagesByAnnouncementID(announcementID string) ([]*SentMessage, error) {
+	var sentMessages []*SentMessage
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(sentMessagesBucket)
+		return b.ForEach(func(k, v []byte) error {
+			var sm SentMessage
+			if err := json.Unmarshal(v, &sm); err != nil {
+				return fmt.Errorf("failed to unmarshal sent message: %w", err)
+			}
+			if sm.AnnouncementID == announcementID {
+				sentMessages = append(sentMessages, &sm)
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sent messages: %w", err)
+	}
+	return sentMessages, nil
+}
+
+// DeleteSentMessage removes a sent message from the store.
+func (s *Store) DeleteSentMessage(id string) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(sentMessagesBucket)
+		return b.Delete([]byte(id))
+	})
 }

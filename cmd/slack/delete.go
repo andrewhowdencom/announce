@@ -34,28 +34,31 @@ func doDelete(store datastore.Storer, client slack.Client, id string) error {
 		return fmt.Errorf("failed to get announcement: %w", err)
 	}
 
-	if a.Status == datastore.StatusSent {
-		// Soft delete: update the status to "deleted" and delete the message from Slack
-		channelID, err := client.GetChannelID(a.ChannelID)
-		if err != nil {
-			return fmt.Errorf("failed to get channel ID: %w", err)
-		}
-		if err := client.DeleteMessage(channelID, a.Timestamp); err != nil {
-			return fmt.Errorf("failed to delete message from slack: %w", err)
-		}
-
-		a.Status = datastore.StatusDeleted
-		if err := store.UpdateAnnouncement(a); err != nil {
-			return fmt.Errorf("failed to update announcement: %w", err)
-		}
-		fmt.Printf("Announcement '%s' soft deleted and message removed from Slack.\n", id)
-	} else {
-		// Hard delete: remove the announcement from the datastore
-		if err := store.DeleteAnnouncement(id); err != nil {
-			return fmt.Errorf("failed to delete announcement: %w", err)
-		}
-		fmt.Printf("Announcement '%s' hard deleted.\n", id)
+	sentMessages, err := store.ListSentMessagesByAnnouncementID(id)
+	if err != nil {
+		return fmt.Errorf("failed to list sent messages: %w", err)
 	}
+
+	for _, sm := range sentMessages {
+		if sm.Status == datastore.StatusSent {
+			channelID, err := client.GetChannelID(a.ChannelID)
+			if err != nil {
+				return fmt.Errorf("failed to get channel ID: %w", err)
+			}
+			if err := client.DeleteMessage(channelID, sm.Timestamp); err != nil {
+				return fmt.Errorf("failed to delete message from slack: %w", err)
+			}
+		}
+		if err := store.DeleteSentMessage(sm.ID); err != nil {
+			return fmt.Errorf("failed to delete sent message: %w", err)
+		}
+	}
+
+	if err := store.DeleteAnnouncement(id); err != nil {
+		return fmt.Errorf("failed to delete announcement: %w", err)
+	}
+
+	fmt.Printf("Announcement '%s' and all its sent messages have been deleted.\n", id)
 
 	return nil
 }
