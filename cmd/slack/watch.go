@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package slack
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,13 @@ import (
 	"github.com/andrewhowdencom/announce/internal/datastore"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+var (
+	// ErrListAnnouncements is returned when the datastore fails to list announcements.
+	ErrListAnnouncements = errors.New("failed to list announcements")
+	// ErrUpdateAnnouncement is returned when the datastore fails to update an announcement.
+	ErrUpdateAnnouncement = errors.New("failed to update announcement")
 )
 
 var (
@@ -26,7 +34,7 @@ var (
 func doWatch(store datastore.Storer, slackClient slack.Client) error {
 	announcements, err := store.ListAnnouncements()
 	if err != nil {
-		return fmt.Errorf("failed to list announcements: %w", err)
+		return fmt.Errorf("%w: %w", ErrListAnnouncements, err)
 	}
 
 	for _, a := range announcements {
@@ -41,7 +49,7 @@ func doWatch(store datastore.Storer, slackClient slack.Client) error {
 			}
 
 			if err := store.UpdateAnnouncement(a); err != nil {
-				return fmt.Errorf("failed to update announcement: %w", err)
+				return fmt.Errorf("%w: %w", ErrUpdateAnnouncement, err)
 			}
 		}
 	}
