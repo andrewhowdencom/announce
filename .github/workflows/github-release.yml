@@ -8,19 +8,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: write
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64]
+      contents: write # to be able to publish a GitHub release
     steps:
       - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          project_path: "."
-          binary_name: "announce"
-          extra_files: LICENSE README.md
+          fetch-depth: 0 # GoReleaser needs the full git history
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - uses: goreleaser/goreleaser-action@v5
+        with:
+          # either 'goreleaser' (default) or 'goreleaser-pro'
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

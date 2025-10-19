@@ -46,12 +46,10 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find xdg config path.
+		// Find xdg config path and set it for viper if found.
 		configPath, err := xdg.ConfigFile("announce/config.yaml")
-		if err != nil {
-			// if we can't find the config file, we'll just use the default values
-		} else {
-			// Search config in home directory with name ".announce" (without extension).
+		if err == nil {
+			// Search config in the XDG config directory with name "config.yaml".
 			viper.AddConfigPath(filepath.Dir(configPath))
 			viper.SetConfigName(filepath.Base(configPath))
 			viper.SetConfigType("yaml")
