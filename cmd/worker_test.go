@@ -11,31 +11,18 @@ import (
 )
 
 func TestRunWorker(t *testing.T) {
-	announcements := []*datastore.Announcement{
-		{
-			ID:          "1",
-			Content:     "test",
-			ChannelID:   "test",
-			Status:      datastore.StatusPending,
-			ScheduledAt: time.Now().Add(-1 * time.Hour),
-		},
-	}
+	store, err := datastore.NewMockStore()
+	assert.NoError(t, err)
 
-	addSentMessageCalled := false
-
-	store := &datastore.MockStore{
-		ListAnnouncementsFunc: func() ([]*datastore.Announcement, error) {
-			return announcements, nil
-		},
-		UpdateAnnouncementFunc: func(a *datastore.Announcement) error {
-			announcements[0] = a
-			return nil
-		},
-		AddSentMessageFunc: func(sm *datastore.SentMessage) error {
-			addSentMessageCalled = true
-			return nil
-		},
+	announcement := &datastore.Announcement{
+		ID:          "1",
+		Content:     "test",
+		ChannelID:   "test",
+		Status:      datastore.StatusPending,
+		ScheduledAt: time.Now().Add(-1 * time.Hour),
 	}
+	err = store.AddAnnouncement(announcement)
+	assert.NoError(t, err)
 
 	slackClient := &slack.MockClient{
 		PostMessageFunc: func(channelID, text string) (string, error) {
@@ -45,9 +32,15 @@ func TestRunWorker(t *testing.T) {
 
 	viper.Set("slack.app.token", "test")
 
-	err := runWorker(store, slackClient)
+	err = runWorker(store, slackClient)
 	assert.NoError(t, err)
 
-	assert.Equal(t, datastore.StatusProcessed, announcements[0].Status)
-	assert.True(t, addSentMessageCalled)
+	updatedAnnouncement, err := store.GetAnnouncement("1")
+	assert.NoError(t, err)
+
+	assert.Equal(t, datastore.StatusProcessed, updatedAnnouncement.Status)
+
+	sentMessages, err := store.ListSentMessagesByAnnouncementID("1")
+	assert.NoError(t, err)
+	assert.Len(t, sentMessages, 1)
 }

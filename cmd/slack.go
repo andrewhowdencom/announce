@@ -28,6 +28,7 @@ func init() {
 	rootCmd.AddCommand(slackCmd)
 	slackCmd.AddCommand(slack.ScheduleCmd)
 	slackCmd.AddCommand(slack.DeleteCmd)
+	slackCmd.AddCommand(slack.RescheduleCmd)
 
 	slackCmd.PersistentFlags().String("app-token", "", "Slack app token")
 	viper.BindPFlag("slack.app.token", slackCmd.PersistentFlags().Lookup("app-token"))

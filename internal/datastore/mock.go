@@ -1,65 +1,100 @@
 package datastore
 
+import (
+	"strconv"
+)
+
 // MockStore is a mock implementation of the Store for testing.
 type MockStore struct {
-	AddAnnouncementFunc                func(*Announcement) error
-	GetAnnouncementFunc                func(string) (*Announcement, error)
-	ListAnnouncementsFunc              func() ([]*Announcement, error)
-	UpdateAnnouncementFunc             func(*Announcement) error
-	DeleteAnnouncementFunc             func(string) error
-	AddSentMessageFunc                 func(*SentMessage) error
-	ListSentMessagesFunc               func() ([]*SentMessage, error)
-	ListSentMessagesByAnnouncementIDFunc func(string) ([]*SentMessage, error)
-	DeleteSentMessageFunc              func(string) error
-	CloseFunc                          func() error
+	announcements map[string]*Announcement
+	sentMessages  map[string]*SentMessage
+	nextID        int
 }
 
-// AddAnnouncement calls the AddAnnouncementFunc.
+// NewMockStore creates a new MockStore.
+func NewMockStore() (Storer, error) {
+	return &MockStore{
+		announcements: make(map[string]*Announcement),
+		sentMessages:  make(map[string]*SentMessage),
+		nextID:        1,
+	}, nil
+}
+
+// AddAnnouncement adds a new announcement to the mock store.
 func (m *MockStore) AddAnnouncement(a *Announcement) error {
-	return m.AddAnnouncementFunc(a)
+	id := strconv.Itoa(m.nextID)
+	m.nextID++
+	a.ID = id
+	m.announcements[id] = a
+	return nil
 }
 
-// GetAnnouncement calls the GetAnnouncementFunc.
+// GetAnnouncement retrieves an announcement from the mock store.
 func (m *MockStore) GetAnnouncement(id string) (*Announcement, error) {
-	return m.GetAnnouncementFunc(id)
+	a, ok := m.announcements[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return a, nil
 }
 
-// ListAnnouncements calls the ListAnnouncementsFunc.
+// ListAnnouncements retrieves all announcements from the mock store.
 func (m *MockStore) ListAnnouncements() ([]*Announcement, error) {
-	return m.ListAnnouncementsFunc()
+	announcements := make([]*Announcement, 0, len(m.announcements))
+	for _, a := range m.announcements {
+		announcements = append(announcements, a)
+	}
+	return announcements, nil
 }
 
-// UpdateAnnouncement calls the UpdateAnnouncementFunc.
+// UpdateAnnouncement updates an existing announcement in the mock store.
 func (m *MockStore) UpdateAnnouncement(a *Announcement) error {
-	return m.UpdateAnnouncementFunc(a)
+	m.announcements[a.ID] = a
+	return nil
 }
 
-// DeleteAnnouncement calls the DeleteAnnouncementFunc.
+// DeleteAnnouncement removes an announcement from the mock store.
 func (m *MockStore) DeleteAnnouncement(id string) error {
-	return m.DeleteAnnouncementFunc(id)
+	delete(m.announcements, id)
+	return nil
 }
 
-// AddSentMessage calls the AddSentMessageFunc.
+// AddSentMessage adds a new sent message to the mock store.
 func (m *MockStore) AddSentMessage(sm *SentMessage) error {
-	return m.AddSentMessageFunc(sm)
+	id := strconv.Itoa(m.nextID)
+	m.nextID++
+	sm.ID = id
+	m.sentMessages[id] = sm
+	return nil
 }
 
-// ListSentMessages calls the ListSentMessagesFunc.
+// ListSentMessages retrieves all sent messages from the mock store.
 func (m *MockStore) ListSentMessages() ([]*SentMessage, error) {
-	return m.ListSentMessagesFunc()
+	sentMessages := make([]*SentMessage, 0, len(m.sentMessages))
+	for _, sm := range m.sentMessages {
+		sentMessages = append(sentMessages, sm)
+	}
+	return sentMessages, nil
 }
 
-// ListSentMessagesByAnnouncementID calls the ListSentMessagesByAnnouncementIDFunc.
+// ListSentMessagesByAnnouncementID retrieves all sent messages for a given announcement ID from the mock store.
 func (m *MockStore) ListSentMessagesByAnnouncementID(announcementID string) ([]*SentMessage, error) {
-	return m.ListSentMessagesByAnnouncementIDFunc(announcementID)
+	sentMessages := make([]*SentMessage, 0)
+	for _, sm := range m.sentMessages {
+		if sm.AnnouncementID == announcementID {
+			sentMessages = append(sentMessages, sm)
+		}
+	}
+	return sentMessages, nil
 }
 
-// DeleteSentMessage calls the DeleteSentMessageFunc.
+// DeleteSentMessage removes a sent message from the mock store.
 func (m *MockStore) DeleteSentMessage(id string) error {
-	return m.DeleteSentMessageFunc(id)
+	delete(m.sentMessages, id)
+	return nil
 }
 
-// Close calls the CloseFunc.
+// Close does nothing for the mock store.
 func (m *MockStore) Close() error {
-	return m.CloseFunc()
+	return nil
 }
