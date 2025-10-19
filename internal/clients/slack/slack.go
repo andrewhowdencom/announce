@@ -2,6 +2,7 @@ package slack
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/slack-go/slack"
 )
@@ -10,6 +11,7 @@ import (
 type Client interface {
 	PostMessage(channelID, text string) (string, error)
 	DeleteMessage(channelID, timestamp string) error
+	GetChannelID(channelName string) (string, error)
 }
 
 // client is the concrete implementation of the Client interface.
@@ -42,10 +44,33 @@ func (c *client) DeleteMessage(channelID, timestamp string) error {
 	return nil
 }
 
+// GetChannelID retrieves the ID of a channel given its name.
+func (c *client) GetChannelID(channelName string) (string, error) {
+	// TODO: Implement pagination if there are more than 1000 channels.
+	channels, _, err := c.api.GetConversations(&slack.GetConversationsParameters{
+		Limit: 1000,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get conversations: %w", err)
+	}
+
+	// Normalize channel name for case-insensitive comparison.
+	normalizedChannelName := strings.TrimPrefix(strings.ToLower(channelName), "#")
+
+	for _, channel := range channels {
+		if strings.ToLower(channel.Name) == normalizedChannelName {
+			return channel.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("channel '%s' not found", channelName)
+}
+
 // MockClient is a mock implementation of the Client interface for testing.
 type MockClient struct {
 	PostMessageFunc   func(channelID, text string) (string, error)
 	DeleteMessageFunc func(channelID, timestamp string) error
+	GetChannelIDFunc  func(channelName string) (string, error)
 }
 
 // PostMessage calls the PostMessageFunc.
@@ -56,4 +81,9 @@ func (m *MockClient) PostMessage(channelID, text string) (string, error) {
 // DeleteMessage calls the DeleteMessageFunc.
 func (m *MockClient) DeleteMessage(channelID, timestamp string) error {
 	return m.DeleteMessageFunc(channelID, timestamp)
+}
+
+// GetChannelID calls the GetChannelIDFunc.
+func (m *MockClient) GetChannelID(channelName string) (string, error) {
+	return m.GetChannelIDFunc(channelName)
 }

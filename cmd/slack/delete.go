@@ -36,7 +36,11 @@ func doDelete(store datastore.Storer, client slack.Client, id string) error {
 
 	if a.Status == datastore.StatusSent {
 		// Soft delete: update the status to "deleted" and delete the message from Slack
-		if err := client.DeleteMessage(a.ChannelID, a.Timestamp); err != nil {
+		channelID, err := client.GetChannelID(a.ChannelID)
+		if err != nil {
+			return fmt.Errorf("failed to get channel ID: %w", err)
+		}
+		if err := client.DeleteMessage(channelID, a.Timestamp); err != nil {
 			return fmt.Errorf("failed to delete message from slack: %w", err)
 		}
 
