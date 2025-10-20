@@ -1,5 +1,26 @@
 # announce
-A (vibe coded) application to make announcements
+
+A (vibe coded) application to make announcements.
+
+## What it does
+
+This application is a CLI tool to send announcements to different platforms. Currently, it supports Slack.
+
+## Usage
+
+To see a list of all available commands and flags, run:
+
+```bash
+announce --help
+```
+
+## Getting it
+
+You can download the latest version of the application from the [GitHub Releases page](https://github.com/andrewhowdencom/announce/releases).
+
+## Development
+
+This application has been almost entirely "vibe coded" with Google Jules & Gemini.
 
 ## Task Runner
 
