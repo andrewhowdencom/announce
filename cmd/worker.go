@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/andrewhowdencom/announce/internal/clients/slack"
-	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/clients/slack"
+	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,8 +14,8 @@ import (
 // workerCmd represents the worker command
 var workerCmd = &cobra.Command{
 	Use:   "worker",
-	Short: "Run the worker to send announcements",
-	Long:  `Run the worker to send announcements.`,
+	Short: "Run the worker to send calls",
+	Long:  `Run the worker to send calls.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := datastore.NewStore()
 		if err != nil {
@@ -37,30 +37,30 @@ var workerCmd = &cobra.Command{
 }
 
 func runWorker(store datastore.Storer, slackClient slack.Client) error {
-	announcements, err := store.ListAnnouncements()
+	calls, err := store.ListCalls()
 	if err != nil {
-		return fmt.Errorf("failed to list announcements: %w", err)
+		return fmt.Errorf("failed to list calls: %w", err)
 	}
 
-	for _, a := range announcements {
-		if err := processAnnouncement(store, slackClient, a); err != nil {
-			fmt.Printf("Error processing announcement %s: %v\n", a.ID, err)
+	for _, a := range calls {
+		if err := processCall(store, slackClient, a); err != nil {
+			fmt.Printf("Error processing call %s: %v\n", a.ID, err)
 		}
 	}
 
 	return nil
 }
 
-func processAnnouncement(store datastore.Storer, slackClient slack.Client, a *datastore.Announcement) error {
+func processCall(store datastore.Storer, slackClient slack.Client, a *datastore.Call) error {
 	if !((a.Status == datastore.StatusPending || a.Status == datastore.StatusRecurring) && time.Now().After(a.ScheduledAt)) {
 		return nil
 	}
 
-	fmt.Printf("Sending announcement %s... ", a.ID)
+	fmt.Printf("Sending call %s... ", a.ID)
 
 	timestamp, err := slackClient.PostMessage(a.ChannelID, a.Content)
 	sentMessage := &datastore.SentMessage{
-		AnnouncementID: a.ID,
+		CallID: a.ID,
 		Timestamp:      timestamp,
 	}
 
@@ -78,20 +78,20 @@ func processAnnouncement(store datastore.Storer, slackClient slack.Client, a *da
 
 	if a.Recurring {
 		reschedule(a)
-		if err := store.UpdateAnnouncement(a); err != nil {
-			return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
+		if err := store.UpdateCall(a); err != nil {
+			return fmt.Errorf("failed to update call %s: %w", a.ID, err)
 		}
 	} else {
 		a.Status = datastore.StatusProcessed
-		if err := store.UpdateAnnouncement(a); err != nil {
-			return fmt.Errorf("failed to update announcement %s: %w", a.ID, err)
+		if err := store.UpdateCall(a); err != nil {
+			return fmt.Errorf("failed to update call %s: %w", a.ID, err)
 		}
 	}
 
 	return nil
 }
 
-func reschedule(a *datastore.Announcement) {
+func reschedule(a *datastore.Call) {
 	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	schedule, err := parser.Parse(a.Cron)
 	if err != nil {

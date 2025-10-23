@@ -8,11 +8,11 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /announce .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /ruf .
 
 # final stage
 FROM scratch
 
-COPY --from=builder /announce /announce
+COPY --from=builder /ruf /ruf
 
-ENTRYPOINT ["/announce"]
+ENTRYPOINT ["/ruf"]

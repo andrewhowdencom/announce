@@ -17,11 +17,11 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "announce",
-	Short: "A tool to send announcements to different platforms.",
-	Long: `A tool to send announcements to different platforms.
+	Use:   "ruf",
+	Short: "A tool to send calls to different platforms.",
+	Long: `A tool to send calls to different platforms.
 
-This application is a CLI tool to send announcements to different platforms.
+This application is a CLI tool to send calls to different platforms.
 Currently, it supports Slack.`,
 }
 
@@ -37,7 +37,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/announce/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/ruf/config.yaml)")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -47,7 +47,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find xdg config path and set it for viper if found.
-		configPath, err := xdg.ConfigFile("announce/config.yaml")
+		configPath, err := xdg.ConfigFile("ruf/config.yaml")
 		if err == nil {
 			// Search config in the XDG config directory with name "config.yaml".
 			viper.AddConfigPath(filepath.Dir(configPath))
@@ -56,7 +56,7 @@ func initConfig() {
 		}
 	}
 
-	viper.SetEnvPrefix("ANNOUNCE")
+	viper.SetEnvPrefix("RUF")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,7 @@ var ScheduleCmd = &cobra.Command{
 This command reads a message from STDIN and schedules it to be sent to a Slack channel at a specified time.
 
 Example:
-  echo "Hello, world!" | announce slack schedule --channel C1234567890 --at 2025-10-26T19:00:00Z`,
+  echo "Hello, world!" | ruf slack schedule --channel C1234567890 --at 2025-10-26T19:00:00Z`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Read the message from STDIN
 		message, err := io.ReadAll(os.Stdin)
@@ -40,8 +40,8 @@ Example:
 			return err
 		}
 
-		// Create a new announcement
-		announcement := &datastore.Announcement{
+		// Create a new call
+		call := &datastore.Call{
 			Content:   string(message),
 				ChannelID: channelID,
 		}
@@ -53,10 +53,10 @@ Example:
 				return fmt.Errorf("failed to parse cron expression: %w", err)
 			}
 
-			announcement.Cron = cronExpr
-			announcement.Recurring = true
-			announcement.ScheduledAt = schedule.Next(time.Now())
-			announcement.Status = datastore.StatusRecurring
+			call.Cron = cronExpr
+			call.Recurring = true
+			call.ScheduledAt = schedule.Next(time.Now())
+			call.Status = datastore.StatusRecurring
 		} else {
 			// Get the scheduled time from the flags
 			at, err := cmd.Flags().GetString("at")
@@ -67,8 +67,8 @@ Example:
 			if err != nil {
 				return fmt.Errorf("failed to parse 'at' flag: %w", err)
 			}
-			announcement.ScheduledAt = scheduledAt
-			announcement.Status = datastore.StatusPending
+			call.ScheduledAt = scheduledAt
+			call.Status = datastore.StatusPending
 		}
 
 		// Create a new datastore
@@ -78,12 +78,12 @@ Example:
 		}
 		defer store.Close()
 
-		// Add the announcement to the datastore
-		if err := store.AddAnnouncement(announcement); err != nil {
-			return fmt.Errorf("failed to add announcement: %w", err)
+		// Add the call to the datastore
+		if err := store.AddCall(call); err != nil {
+			return fmt.Errorf("failed to add call: %w", err)
 		}
 
-		fmt.Printf("Announcement scheduled successfully with ID: %s\n", announcement.ID)
+		fmt.Printf("Call scheduled successfully with ID: %s\n", call.ID)
 		return nil
 	},
 }

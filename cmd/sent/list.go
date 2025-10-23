@@ -5,7 +5,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/spf13/cobra"
 )
 
@@ -27,9 +27,9 @@ var ListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "ID\tAnnouncement ID\tTimestamp\tStatus") // Corrected: \t is the correct escape for tab
+		fmt.Fprintln(w, "ID\tCall ID\tTimestamp\tStatus") // Corrected: \t is the correct escape for tab
 		for _, sm := range sentMessages {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sm.ID, sm.AnnouncementID, sm.Timestamp, sm.Status) // Corrected: \t for tab, \n for newline
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sm.ID, sm.CallID, sm.Timestamp, sm.Status) // Corrected: \t for tab, \n for newline
 		}
 		w.Flush()
 

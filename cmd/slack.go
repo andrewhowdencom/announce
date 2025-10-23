@@ -6,7 +6,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/andrewhowdencom/announce/cmd/slack"
+	"github.com/andrewhowdencom/ruf/cmd/slack"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -14,8 +14,8 @@ import (
 // slackCmd represents the slack command
 var slackCmd = &cobra.Command{
 	Use:   "slack",
-	Short: "Manage Slack announcements",
-	Long:  `Manage Slack announcements.`,
+	Short: "Manage Slack calls",
+	Long:  `Manage Slack calls.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if viper.GetString("slack.app.token") == "" {
 			return fmt.Errorf("slack app token is not configured")

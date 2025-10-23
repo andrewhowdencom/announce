@@ -6,7 +6,7 @@ import (
 
 // MockStore is a mock implementation of the Store for testing.
 type MockStore struct {
-	announcements map[string]*Announcement
+	calls map[string]*Call
 	sentMessages  map[string]*SentMessage
 	nextID        int
 }
@@ -14,48 +14,48 @@ type MockStore struct {
 // NewMockStore creates a new MockStore.
 func NewMockStore() (Storer, error) {
 	return &MockStore{
-		announcements: make(map[string]*Announcement),
+		calls: make(map[string]*Call),
 		sentMessages:  make(map[string]*SentMessage),
 		nextID:        1,
 	}, nil
 }
 
-// AddAnnouncement adds a new announcement to the mock store.
-func (m *MockStore) AddAnnouncement(a *Announcement) error {
+// AddCall adds a new call to the mock store.
+func (m *MockStore) AddCall(a *Call) error {
 	id := strconv.Itoa(m.nextID)
 	m.nextID++
 	a.ID = id
-	m.announcements[id] = a
+	m.calls[id] = a
 	return nil
 }
 
-// GetAnnouncement retrieves an announcement from the mock store.
-func (m *MockStore) GetAnnouncement(id string) (*Announcement, error) {
-	a, ok := m.announcements[id]
+// GetCall retrieves an call from the mock store.
+func (m *MockStore) GetCall(id string) (*Call, error) {
+	a, ok := m.calls[id]
 	if !ok {
 		return nil, ErrNotFound
 	}
 	return a, nil
 }
 
-// ListAnnouncements retrieves all announcements from the mock store.
-func (m *MockStore) ListAnnouncements() ([]*Announcement, error) {
-	announcements := make([]*Announcement, 0, len(m.announcements))
-	for _, a := range m.announcements {
-		announcements = append(announcements, a)
+// ListCalls retrieves all calls from the mock store.
+func (m *MockStore) ListCalls() ([]*Call, error) {
+	calls := make([]*Call, 0, len(m.calls))
+	for _, a := range m.calls {
+		calls = append(calls, a)
 	}
-	return announcements, nil
+	return calls, nil
 }
 
-// UpdateAnnouncement updates an existing announcement in the mock store.
-func (m *MockStore) UpdateAnnouncement(a *Announcement) error {
-	m.announcements[a.ID] = a
+// UpdateCall updates an existing call in the mock store.
+func (m *MockStore) UpdateCall(a *Call) error {
+	m.calls[a.ID] = a
 	return nil
 }
 
-// DeleteAnnouncement removes an announcement from the mock store.
-func (m *MockStore) DeleteAnnouncement(id string) error {
-	delete(m.announcements, id)
+// DeleteCall removes an call from the mock store.
+func (m *MockStore) DeleteCall(id string) error {
+	delete(m.calls, id)
 	return nil
 }
 
@@ -77,11 +77,11 @@ func (m *MockStore) ListSentMessages() ([]*SentMessage, error) {
 	return sentMessages, nil
 }
 
-// ListSentMessagesByAnnouncementID retrieves all sent messages for a given announcement ID from the mock store.
-func (m *MockStore) ListSentMessagesByAnnouncementID(announcementID string) ([]*SentMessage, error) {
+// ListSentMessagesByCallID retrieves all sent messages for a given call ID from the mock store.
+func (m *MockStore) ListSentMessagesByCallID(callID string) ([]*SentMessage, error) {
 	sentMessages := make([]*SentMessage, 0)
 	for _, sm := range m.sentMessages {
-		if sm.AnnouncementID == announcementID {
+		if sm.CallID == callID {
 			sentMessages = append(sentMessages, sm)
 		}
 	}

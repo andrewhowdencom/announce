@@ -15,44 +15,44 @@ func TestStore(t *testing.T) {
 	defer store.Close()
 	defer os.RemoveAll(".config/announce")
 
-	// Test AddAnnouncement
-	a := &Announcement{
+	// Test AddCall
+	a := &Call{
 		Content:     "Hello, world!",
 		ChannelID:   "C1234567890",
 		ScheduledAt: time.Now(),
 		Status:      StatusPending,
 	}
-	err = store.AddAnnouncement(a)
+	err = store.AddCall(a)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, a.ID)
 
-	// Test ListAnnouncements
-	announcements, err := store.ListAnnouncements()
+	// Test ListCalls
+	calls, err := store.ListCalls()
 	assert.NoError(t, err)
-	assert.Len(t, announcements, 1)
-	assert.Equal(t, a.Content, announcements[0].Content)
+	assert.Len(t, calls, 1)
+	assert.Equal(t, a.Content, calls[0].Content)
 
-	// Test UpdateAnnouncement to StatusSent
-	announcements[0].Status = StatusSent
-	err = store.UpdateAnnouncement(announcements[0])
-	assert.NoError(t, err)
-
-	announcements, err = store.ListAnnouncements()
-	assert.NoError(t, err)
-	assert.Equal(t, StatusSent, announcements[0].Status)
-
-	// Test UpdateAnnouncement to StatusProcessed
-	announcements[0].Status = StatusProcessed
-	err = store.UpdateAnnouncement(announcements[0])
+	// Test UpdateCall to StatusSent
+	calls[0].Status = StatusSent
+	err = store.UpdateCall(calls[0])
 	assert.NoError(t, err)
 
-	processedAnnouncement, err := store.GetAnnouncement(announcements[0].ID)
+	calls, err = store.ListCalls()
 	assert.NoError(t, err)
-	assert.Equal(t, StatusProcessed, processedAnnouncement.Status)
+	assert.Equal(t, StatusSent, calls[0].Status)
+
+	// Test UpdateCall to StatusProcessed
+	calls[0].Status = StatusProcessed
+	err = store.UpdateCall(calls[0])
+	assert.NoError(t, err)
+
+	processedCall, err := store.GetCall(calls[0].ID)
+	assert.NoError(t, err)
+	assert.Equal(t, StatusProcessed, processedCall.Status)
 
 	// Test AddSentMessage
 	sm := &SentMessage{
-		AnnouncementID: a.ID,
+		CallID: a.ID,
 		Timestamp:      "12345",
 		Status:         StatusSent,
 	}
@@ -64,13 +64,13 @@ func TestStore(t *testing.T) {
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 1)
-	assert.Equal(t, sm.AnnouncementID, sentMessages[0].AnnouncementID)
+	assert.Equal(t, sm.CallID, sentMessages[0].CallID)
 
-	// Test ListSentMessagesByAnnouncementID
-	sentMessages, err = store.ListSentMessagesByAnnouncementID(a.ID)
+	// Test ListSentMessagesByCallID
+	sentMessages, err = store.ListSentMessagesByCallID(a.ID)
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 1)
-	assert.Equal(t, sm.AnnouncementID, sentMessages[0].AnnouncementID)
+	assert.Equal(t, sm.CallID, sentMessages[0].CallID)
 
 	// Test DeleteSentMessage
 	err = store.DeleteSentMessage(sm.ID)
@@ -80,11 +80,11 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 0)
 
-	// Test DeleteAnnouncement
-	err = store.DeleteAnnouncement(announcements[0].ID)
+	// Test DeleteCall
+	err = store.DeleteCall(calls[0].ID)
 	assert.NoError(t, err)
 
-	announcements, err = store.ListAnnouncements()
+	calls, err = store.ListCalls()
 	assert.NoError(t, err)
-	assert.Len(t, announcements, 0)
+	assert.Len(t, calls, 0)
 }

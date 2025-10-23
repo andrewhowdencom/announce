@@ -3,5 +3,5 @@ package datastore
 import "errors"
 
 var (
-	ErrNotFound = errors.New("announcement not found")
+	ErrNotFound = errors.New("call not found")
 )
