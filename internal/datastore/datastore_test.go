@@ -9,82 +9,52 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	// Create a new store for testing
-	store, err := NewStore()
+	tmpfile, err := os.CreateTemp("", "test.db")
+	assert.NoError(t, err)
+	defer os.Remove(tmpfile.Name())
+
+	store, err := NewTestStore(tmpfile.Name())
 	assert.NoError(t, err)
 	defer store.Close()
-	defer os.RemoveAll(".config/announce")
-
-	// Test AddCall
-	a := &Call{
-		Content:     "Hello, world!",
-		ChannelID:   "C1234567890",
-		ScheduledAt: time.Now(),
-		Status:      StatusPending,
-	}
-	err = store.AddCall(a)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, a.ID)
-
-	// Test ListCalls
-	calls, err := store.ListCalls()
-	assert.NoError(t, err)
-	assert.Len(t, calls, 1)
-	assert.Equal(t, a.Content, calls[0].Content)
-
-	// Test UpdateCall to StatusSent
-	calls[0].Status = StatusSent
-	err = store.UpdateCall(calls[0])
-	assert.NoError(t, err)
-
-	calls, err = store.ListCalls()
-	assert.NoError(t, err)
-	assert.Equal(t, StatusSent, calls[0].Status)
-
-	// Test UpdateCall to StatusProcessed
-	calls[0].Status = StatusProcessed
-	err = store.UpdateCall(calls[0])
-	assert.NoError(t, err)
-
-	processedCall, err := store.GetCall(calls[0].ID)
-	assert.NoError(t, err)
-	assert.Equal(t, StatusProcessed, processedCall.Status)
 
 	// Test AddSentMessage
-	sm := &SentMessage{
-		CallID: a.ID,
-		Timestamp:      "12345",
-		Status:         StatusSent,
+	sm1 := &SentMessage{
+		SourceID:    "1",
+		ScheduledAt: time.Now(),
+		Timestamp:   "1234567890.123456",
+		Status:      StatusSent,
 	}
-	err = store.AddSentMessage(sm)
+	err = store.AddSentMessage(sm1)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, sm.ID)
+
+	// Test HasBeenSent
+	hasBeenSent, err := store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt)
+	assert.NoError(t, err)
+	assert.True(t, hasBeenSent)
+
+	hasBeenSent, err = store.HasBeenSent("2", time.Now())
+	assert.NoError(t, err)
+	assert.False(t, hasBeenSent)
 
 	// Test ListSentMessages
+	sm2 := &SentMessage{
+		SourceID:    "2",
+		ScheduledAt: time.Now(),
+		Timestamp:   "1234567890.123457",
+		Status:      StatusSent,
+	}
+	err = store.AddSentMessage(sm2)
+	assert.NoError(t, err)
+
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
-	assert.Len(t, sentMessages, 1)
-	assert.Equal(t, sm.CallID, sentMessages[0].CallID)
-
-	// Test ListSentMessagesByCallID
-	sentMessages, err = store.ListSentMessagesByCallID(a.ID)
-	assert.NoError(t, err)
-	assert.Len(t, sentMessages, 1)
-	assert.Equal(t, sm.CallID, sentMessages[0].CallID)
+	assert.Len(t, sentMessages, 2)
 
 	// Test DeleteSentMessage
-	err = store.DeleteSentMessage(sm.ID)
+	err = store.DeleteSentMessage(sm1.ID)
 	assert.NoError(t, err)
 
-	sentMessages, err = store.ListSentMessages()
+	hasBeenSent, err = store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt)
 	assert.NoError(t, err)
-	assert.Len(t, sentMessages, 0)
-
-	// Test DeleteCall
-	err = store.DeleteCall(calls[0].ID)
-	assert.NoError(t, err)
-
-	calls, err = store.ListCalls()
-	assert.NoError(t, err)
-	assert.Len(t, calls, 0)
+	assert.False(t, hasBeenSent)
 }

@@ -1,5 +1,7 @@
 source:
-  file: "announcements.yaml"
+  urls:
+    - "https://example.com/announcements.yaml"
+    - "file:///path/to/local/announcements.yaml"
 
 slack:
-  webhook_url: ""
+  app_token: ""
