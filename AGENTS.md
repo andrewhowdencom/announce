@@ -218,6 +218,16 @@ func DoSomething() (string, error) {
 	return "", fmt.Errorf("%w: %s", ErrUpstreamFailure, fmt.Errorf("upstream error"))
 }
 ```
+
+#### Exit
+
+Where you exit, make sure you're exiting with an exit code from `sysexits.h`. A good example of how this can be done in 
+go is [andrewhowdencom/sysexists](https://github.com/andrewhowdencom/sysexits)
+
+#### Telemetry
+
+Where you write out logs, please use the `log/slog` library and ensure that the logs are written to _STDERR_ and not _STDOUT_.
+
 ### Markdown
 
 For Markdown documents, please break the documents at 120 characters.
