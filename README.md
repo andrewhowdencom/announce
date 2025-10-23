@@ -14,6 +14,42 @@ To see a list of all available commands and flags, run:
 ruf --help
 ```
 
+## Configuration
+
+The application is configured using a YAML file located at `$XDG_CONFIG_HOME/ruf/config.yaml`. The following configuration options are available:
+
+| Name | Description |
+| --- | --- |
+| `source.urls` | A list of URLs to fetch calls from. Both remote (`https://...`) and local (`file://...`) URLs are supported. |
+| `slack.webhook_url` | The Slack webhook URL to send calls to. |
+
+### Example
+
+```yaml
+source:
+  urls:
+    - "https://example.com/announcements.yaml"
+    - "file:///path/to/local/announcements.yaml"
+
+slack:
+  webhook_url: ""
+```
+
+## Call Format
+
+The application expects the source YAML files to contain a list of calls with the following format:
+
+```yaml
+- id: "unique-id-1"
+  content: "Hello, world!"
+  channel_id: "C1234567890"
+  scheduled_at: "2025-01-01T12:00:00Z"
+- id: "unique-id-2"
+  content: "Hello, recurring world!"
+  channel_id: "C1234567890"
+  cron: "0 * * * *"
+```
+
 ## Getting it
 
 You can download the latest version of the application from the [GitHub Releases page](https://github.com/andrewhowdencom/ruf/releases).

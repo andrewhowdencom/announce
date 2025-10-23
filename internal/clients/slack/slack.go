@@ -66,24 +66,3 @@ func (c *client) GetChannelID(channelName string) (string, error) {
 	return "", fmt.Errorf("channel '%s' not found", channelName)
 }
 
-// MockClient is a mock implementation of the Client interface for testing.
-type MockClient struct {
-	PostMessageFunc   func(channelID, text string) (string, error)
-	DeleteMessageFunc func(channelID, timestamp string) error
-	GetChannelIDFunc  func(channelName string) (string, error)
-}
-
-// PostMessage calls the PostMessageFunc.
-func (m *MockClient) PostMessage(channelID, text string) (string, error) {
-	return m.PostMessageFunc(channelID, text)
-}
-
-// DeleteMessage calls the DeleteMessageFunc.
-func (m *MockClient) DeleteMessage(channelID, timestamp string) error {
-	return m.DeleteMessageFunc(channelID, timestamp)
-}
-
-// GetChannelID calls the GetChannelIDFunc.
-func (m *MockClient) GetChannelID(channelName string) (string, error) {
-	return m.GetChannelIDFunc(channelName)
-}

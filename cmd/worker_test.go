@@ -6,41 +6,46 @@ import (
 
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRunWorker(t *testing.T) {
-	store, err := datastore.NewMockStore()
-	assert.NoError(t, err)
+type mockSourcer struct {
+	calls []*model.Call
+	err   error
+}
 
-	call := &datastore.Call{
-		ID:          "1",
-		Content:     "test",
-		ChannelID:   "test",
-		Status:      datastore.StatusPending,
-		ScheduledAt: time.Now().Add(-1 * time.Hour),
-	}
-	err = store.AddCall(call)
-	assert.NoError(t, err)
+func (m *mockSourcer) Source(url string) ([]*model.Call, error) {
+	return m.calls, m.err
+}
 
-	slackClient := &slack.MockClient{
-		PostMessageFunc: func(channelID, text string) (string, error) {
-			return "12345", nil
+func TestRunTick(t *testing.T) {
+	// Mock datastore
+	store := datastore.NewMockStore()
+
+	// Mock Slack client
+	slackClient := slack.NewMockClient()
+
+	// Mock sourcer
+	s := &mockSourcer{
+		calls: []*model.Call{
+			{
+				ID:          "1",
+				Content:     "Hello, world!",
+				ChannelID:   "C1234567890",
+				ScheduledAt: time.Now().Add(-1 * time.Minute),
+			},
 		},
 	}
 
-	viper.Set("slack.app.token", "test")
+	viper.Set("source.urls", []string{"mock://url"})
 
-	err = runWorker(store, slackClient)
+	err := runTick(store, slackClient, s)
 	assert.NoError(t, err)
 
-	updatedCall, err := store.GetCall("1")
-	assert.NoError(t, err)
-
-	assert.Equal(t, datastore.StatusProcessed, updatedCall.Status)
-
-	sentMessages, err := store.ListSentMessagesByCallID("1")
+	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 1)
+	assert.Equal(t, "1", sentMessages[0].SourceID)
 }
