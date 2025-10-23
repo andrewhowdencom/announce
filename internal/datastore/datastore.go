@@ -9,30 +9,30 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// The name of the bucket where announcements will be stored.
-var announcementsBucket = []byte("announcements")
+// The name of the bucket where calls will be stored.
+var callsBucket = []byte("calls")
 var sentMessagesBucket = []byte("sent_messages")
 
-// Status represents the status of an announcement.
+// Status represents the status of an call.
 type Status string
 
 const (
-	// StatusPending means the announcement has been scheduled but not yet sent.
+	// StatusPending means the call has been scheduled but not yet sent.
 	StatusPending Status = "pending"
-	// StatusSent means the announcement has been successfully sent.
+	// StatusSent means the call has been successfully sent.
 	StatusSent Status = "sent"
-	// StatusFailed means the announcement failed to send.
+	// StatusFailed means the call failed to send.
 	StatusFailed Status = "failed"
-	// StatusDeleted means the announcement has been deleted.
+	// StatusDeleted means the call has been deleted.
 	StatusDeleted Status = "deleted"
-	// StatusRecurring means the announcement is recurring.
+	// StatusRecurring means the call is recurring.
 	StatusRecurring Status = "recurring"
-	// StatusProcessed means the announcement has been processed.
+	// StatusProcessed means the call has been processed.
 	StatusProcessed Status = "processed"
 )
 
-// Announcement represents a message to be sent to a destination.
-type Announcement struct {
+// Call represents a message to be sent to a destination.
+type Call struct {
 	ID          string    `json:"id"`
 	Content     string    `json:"content"`
 	ChannelID   string    `json:"channel_id"`
@@ -45,32 +45,32 @@ type Announcement struct {
 // SentMessage represents a message that has been sent.
 type SentMessage struct {
 	ID             string    `json:"id"`
-	AnnouncementID string    `json:"announcement_id"`
+	CallID string    `json:"call_id"`
 	Timestamp      string    `json:"timestamp"`
 	Status         Status    `json:"status"`
 }
 
 // Storer is an interface that defines the methods for interacting with the datastore.
 type Storer interface {
-	AddAnnouncement(a *Announcement) error
-	GetAnnouncement(id string) (*Announcement, error)
-	ListAnnouncements() ([]*Announcement, error)
-	UpdateAnnouncement(a *Announcement) error
-	DeleteAnnouncement(id string) error
+	AddCall(a *Call) error
+	GetCall(id string) (*Call, error)
+	ListCalls() ([]*Call, error)
+	UpdateCall(a *Call) error
+	DeleteCall(id string) error
 
 	// AddSentMessage adds a new sent message to the datastore.
 	AddSentMessage(sm *SentMessage) error
 	// ListSentMessages lists all sent messages from the datastore.
 	ListSentMessages() ([]*SentMessage, error)
-	// ListSentMessagesByAnnouncementID lists all sent messages for a given announcement ID.
-	ListSentMessagesByAnnouncementID(announcementID string) ([]*SentMessage, error)
+	// ListSentMessagesByCallID lists all sent messages for a given call ID.
+	ListSentMessagesByCallID(callID string) ([]*SentMessage, error)
 	// DeleteSentMessage deletes a sent message from the datastore.
 	DeleteSentMessage(id string) error
 
 	Close() error
 }
 
-// Store manages the persistence of announcements.
+// Store manages the persistence of calls.
 type Store struct {
 	db *bbolt.DB
 }
@@ -88,7 +88,7 @@ func NewStore() (Storer, error) {
 	}
 
 	err = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(announcementsBucket)
+		_, err := tx.CreateBucketIfNotExists(callsBucket)
 		if err != nil {
 			return err
 		}
@@ -107,64 +107,64 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// AddAnnouncement adds a new announcement to the store.
-func (s *Store) AddAnnouncement(a *Announcement) error {
+// AddCall adds a new call to the store.
+func (s *Store) AddCall(a *Call) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(announcementsBucket)
+		b := tx.Bucket(callsBucket)
 		id, _ := b.NextSequence()
 		a.ID = fmt.Sprintf("%d", id)
 
 		buf, err := json.Marshal(a)
 		if err != nil {
-			return fmt.Errorf("failed to marshal announcement: %w", err)
+			return fmt.Errorf("failed to marshal call: %w", err)
 		}
 		return b.Put([]byte(a.ID), buf)
 	})
 }
 
-// ListAnnouncements retrieves all announcements from the store.
-func (s *Store) ListAnnouncements() ([]*Announcement, error) {
-	var announcements []*Announcement
+// ListCalls retrieves all calls from the store.
+func (s *Store) ListCalls() ([]*Call, error) {
+	var calls []*Call
 	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(announcementsBucket)
+		b := tx.Bucket(callsBucket)
 		return b.ForEach(func(k, v []byte) error {
-			var a Announcement
+			var a Call
 			if err := json.Unmarshal(v, &a); err != nil {
-				return fmt.Errorf("failed to unmarshal announcement: %w", err)
+				return fmt.Errorf("failed to unmarshal call: %w", err)
 			}
-			announcements = append(announcements, &a)
+			calls = append(calls, &a)
 			return nil
 		})
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list announcements: %w", err)
+		return nil, fmt.Errorf("failed to list calls: %w", err)
 	}
-	return announcements, nil
+	return calls, nil
 }
 
-// UpdateAnnouncement updates an existing announcement in the store.
-func (s *Store) UpdateAnnouncement(a *Announcement) error {
+// UpdateCall updates an existing call in the store.
+func (s *Store) UpdateCall(a *Call) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(announcementsBucket)
+		b := tx.Bucket(callsBucket)
 		buf, err := json.Marshal(a)
 		if err != nil {
-			return fmt.Errorf("failed to marshal announcement: %w", err)
+			return fmt.Errorf("failed to marshal call: %w", err)
 		}
 		return b.Put([]byte(a.ID), buf)
 	})
 }
 
-// GetAnnouncement retrieves a single announcement from the store.
-func (s *Store) GetAnnouncement(id string) (*Announcement, error) {
-	var a *Announcement
+// GetCall retrieves a single call from the store.
+func (s *Store) GetCall(id string) (*Call, error) {
+	var a *Call
 	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(announcementsBucket)
+		b := tx.Bucket(callsBucket)
 		v := b.Get([]byte(id))
 		if v == nil {
 			return ErrNotFound
 		}
 		if err := json.Unmarshal(v, &a); err != nil {
-			return fmt.Errorf("failed to unmarshal announcement: %w", err)
+			return fmt.Errorf("failed to unmarshal call: %w", err)
 		}
 		return nil
 	})
@@ -174,10 +174,10 @@ func (s *Store) GetAnnouncement(id string) (*Announcement, error) {
 	return a, nil
 }
 
-// DeleteAnnouncement removes an announcement from the store.
-func (s *Store) DeleteAnnouncement(id string) error {
+// DeleteCall removes an call from the store.
+func (s *Store) DeleteCall(id string) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(announcementsBucket)
+		b := tx.Bucket(callsBucket)
 		return b.Delete([]byte(id))
 	})
 }
@@ -217,8 +217,8 @@ func (s *Store) ListSentMessages() ([]*SentMessage, error) {
 	return sentMessages, nil
 }
 
-// ListSentMessagesByAnnouncementID retrieves all sent messages for a given announcement ID from the store.
-func (s *Store) ListSentMessagesByAnnouncementID(announcementID string) ([]*SentMessage, error) {
+// ListSentMessagesByCallID retrieves all sent messages for a given call ID from the store.
+func (s *Store) ListSentMessagesByCallID(callID string) ([]*SentMessage, error) {
 	var sentMessages []*SentMessage
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
@@ -227,7 +227,7 @@ func (s *Store) ListSentMessagesByAnnouncementID(announcementID string) ([]*Sent
 			if err := json.Unmarshal(v, &sm); err != nil {
 				return fmt.Errorf("failed to unmarshal sent message: %w", err)
 			}
-			if sm.AnnouncementID == announcementID {
+			if sm.CallID == callID {
 				sentMessages = append(sentMessages, &sm)
 			}
 			return nil

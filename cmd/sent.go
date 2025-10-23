@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/andrewhowdencom/announce/cmd/sent"
+	"github.com/andrewhowdencom/ruf/cmd/sent"
 	"github.com/spf13/cobra"
 )
 

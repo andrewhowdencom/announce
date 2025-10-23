@@ -1,9 +1,9 @@
 [Unit]
-Description=Announce Service
+Description=Ruf Service
 After=network.target
 
 [Service]
-ExecStart=%h/.local/bin/announce
+ExecStart=%h/.local/bin/ruf
 Restart=always
 
 [Install]

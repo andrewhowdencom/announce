@@ -1,22 +1,22 @@
-# announce
+# ruf
 
-A (vibe coded) application to make announcements.
+A (vibe coded) application to make calls.
 
 ## What it does
 
-This application is a CLI tool to send announcements to different platforms. Currently, it supports Slack.
+This application is a CLI tool to send calls to different platforms. Currently, it supports Slack.
 
 ## Usage
 
 To see a list of all available commands and flags, run:
 
 ```bash
-announce --help
+ruf --help
 ```
 
 ## Getting it
 
-You can download the latest version of the application from the [GitHub Releases page](https://github.com/andrewhowdencom/announce/releases).
+You can download the latest version of the application from the [GitHub Releases page](https://github.com/andrewhowdencom/ruf/releases).
 
 ## Development
 
@@ -52,5 +52,5 @@ To install it, copy the file to `~/.config/systemd/user/`:
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp examples/announce.service ~/.config/systemd/user/
+cp examples/ruf.service ~/.config/systemd/user/
 ```

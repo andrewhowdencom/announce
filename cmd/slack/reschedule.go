@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ var RescheduleCmd = &cobra.Command{
 
 This command reschedules a message to be sent to a Slack channel at a specified time.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get the announcement ID from the flags
+		// Get the call ID from the flags
 		id, err := cmd.Flags().GetString("id")
 		if err != nil {
 			return err
@@ -45,26 +45,26 @@ func doReschedule(store datastore.Storer, id, at string) error {
 		return fmt.Errorf("failed to parse 'at' flag: %w", err)
 	}
 
-	// Get the announcement from the datastore
-	announcement, err := store.GetAnnouncement(id)
+	// Get the call from the datastore
+	call, err := store.GetCall(id)
 	if err != nil {
-		return fmt.Errorf("failed to get announcement: %w", err)
+		return fmt.Errorf("failed to get call: %w", err)
 	}
 
 	// Update the scheduled time and status
-	announcement.ScheduledAt = scheduledAt
-	announcement.Status = datastore.StatusPending
+	call.ScheduledAt = scheduledAt
+	call.Status = datastore.StatusPending
 
-	// Update the announcement in the datastore
-	if err := store.UpdateAnnouncement(announcement); err != nil {
-		return fmt.Errorf("failed to update announcement: %w", err)
+	// Update the call in the datastore
+	if err := store.UpdateCall(call); err != nil {
+		return fmt.Errorf("failed to update call: %w", err)
 	}
 
-	fmt.Printf("Announcement with ID %s rescheduled successfully to %s\n", announcement.ID, announcement.ScheduledAt.Format(time.RFC3339))
+	fmt.Printf("Call with ID %s rescheduled successfully to %s\n", call.ID, call.ScheduledAt.Format(time.RFC3339))
 	return nil
 }
 
 func init() {
-	RescheduleCmd.Flags().String("id", "", "Announcement ID")
+	RescheduleCmd.Flags().String("id", "", "Call ID")
 	RescheduleCmd.Flags().String("at", "", "Time to send the message (RFC3339 format)")
 }

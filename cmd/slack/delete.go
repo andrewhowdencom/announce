@@ -3,8 +3,8 @@ package slack
 import (
 	"fmt"
 
-	"github.com/andrewhowdencom/announce/internal/clients/slack"
-	"github.com/andrewhowdencom/announce/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/clients/slack"
+	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -12,8 +12,8 @@ import (
 // DeleteCmd represents the delete command
 var DeleteCmd = &cobra.Command{
 	Use:   "delete [id]",
-	Short: "Delete an announcement",
-	Long:  `Delete an announcement.`,
+	Short: "Delete a call",
+	Long:  `Delete a call.`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := datastore.NewStore()
@@ -29,12 +29,12 @@ var DeleteCmd = &cobra.Command{
 }
 
 func doDelete(store datastore.Storer, client slack.Client, id string) error {
-	a, err := store.GetAnnouncement(id)
+	a, err := store.GetCall(id)
 	if err != nil {
-		return fmt.Errorf("failed to get announcement: %w", err)
+		return fmt.Errorf("failed to get call: %w", err)
 	}
 
-	sentMessages, err := store.ListSentMessagesByAnnouncementID(id)
+	sentMessages, err := store.ListSentMessagesByCallID(id)
 	if err != nil {
 		return fmt.Errorf("failed to list sent messages: %w", err)
 	}
@@ -54,11 +54,11 @@ func doDelete(store datastore.Storer, client slack.Client, id string) error {
 		}
 	}
 
-	if err := store.DeleteAnnouncement(id); err != nil {
-		return fmt.Errorf("failed to delete announcement: %w", err)
+	if err := store.DeleteCall(id); err != nil {
+		return fmt.Errorf("failed to delete call: %w", err)
 	}
 
-	fmt.Printf("Announcement '%s' and all its sent messages have been deleted.\n", id)
+	fmt.Printf("Call '%s' and all its sent messages have been deleted.\n", id)
 
 	return nil
 }

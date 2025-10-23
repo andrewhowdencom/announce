@@ -7,6 +7,6 @@ import (
 // RecurringCmd represents the recurring command
 var RecurringCmd = &cobra.Command{
 	Use:   "recurring",
-	Short: "Manage recurring announcements",
-	Long:  `Manage recurring announcements.`,
+	Short: "Manage recurring calls",
+	Long:  `Manage recurring calls.`,
 }
