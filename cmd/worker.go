@@ -106,6 +106,16 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 		return nil
 	}
 
+	lookbackPeriod := viper.GetDuration("worker.lookback_period")
+	if effectiveScheduledAt.Before(now.Add(-lookbackPeriod)) {
+		fmt.Printf("Skipping call %s scheduled at %s because it is outside the lookback period\n", call.ID, effectiveScheduledAt)
+		return store.AddSentMessage(&datastore.SentMessage{
+			SourceID:    call.ID,
+			ScheduledAt: effectiveScheduledAt,
+			Status:      datastore.StatusFailed,
+		})
+	}
+
 	hasBeenSent, err := store.HasBeenSent(call.ID, effectiveScheduledAt)
 	if err != nil {
 		return fmt.Errorf("failed to check if call has been sent: %w", err)
@@ -149,4 +159,5 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 func init() {
 	rootCmd.AddCommand(workerCmd)
 	viper.SetDefault("worker.interval", "1m")
+	viper.SetDefault("worker.lookback_period", "24h")
 }
