@@ -23,16 +23,18 @@ func TestStore(t *testing.T) {
 		ScheduledAt: time.Now(),
 		Timestamp:   "1234567890.123456",
 		Status:      StatusSent,
+		Type:        "slack",
+		Destination: "C1234567890",
 	}
 	err = store.AddSentMessage(sm1)
 	assert.NoError(t, err)
 
 	// Test HasBeenSent
-	hasBeenSent, err := store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt)
+	hasBeenSent, err := store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt, sm1.Type, sm1.Destination)
 	assert.NoError(t, err)
 	assert.True(t, hasBeenSent)
 
-	hasBeenSent, err = store.HasBeenSent("2", time.Now())
+	hasBeenSent, err = store.HasBeenSent("2", time.Now(), "slack", "C1234567890")
 	assert.NoError(t, err)
 	assert.False(t, hasBeenSent)
 
@@ -42,6 +44,8 @@ func TestStore(t *testing.T) {
 		ScheduledAt: time.Now(),
 		Timestamp:   "1234567890.123457",
 		Status:      StatusSent,
+		Type:        "email",
+		Destination: "test@example.com",
 	}
 	err = store.AddSentMessage(sm2)
 	assert.NoError(t, err)
@@ -54,7 +58,7 @@ func TestStore(t *testing.T) {
 	err = store.DeleteSentMessage(sm1.ID)
 	assert.NoError(t, err)
 
-	hasBeenSent, err = store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt)
+	hasBeenSent, err = store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt, sm1.Type, sm1.Destination)
 	assert.NoError(t, err)
 	assert.False(t, hasBeenSent)
 }

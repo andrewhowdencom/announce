@@ -3,6 +3,7 @@ package datastore
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -25,18 +26,19 @@ const (
 
 // SentMessage represents a message that has been sent.
 type SentMessage struct {
-	ID          string    `json:"id"` // Composite key: <source_id>@<scheduled_at>
+	ID          string    `json:"id"`
 	SourceID    string    `json:"source_id"`
 	ScheduledAt time.Time `json:"scheduled_at"`
-	Timestamp   string    `json:"timestamp"` // Slack timestamp
-	ChannelID   string    `json:"channel_id"`
+	Timestamp   string    `json:"timestamp,omitempty"` // Slack timestamp
+	Destination string    `json:"destination"`
+	Type        string    `json:"type"`
 	Status      Status    `json:"status"`
 }
 
 // Storer is an interface that defines the methods for interacting with the datastore.
 type Storer interface {
 	AddSentMessage(sm *SentMessage) error
-	HasBeenSent(sourceID string, scheduledAt time.Time) (bool, error)
+	HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error)
 	ListSentMessages() ([]*SentMessage, error)
 	GetSentMessage(id string) (*SentMessage, error)
 	DeleteSentMessage(id string) error
@@ -89,7 +91,7 @@ func (s *Store) Close() error {
 func (s *Store) AddSentMessage(sm *SentMessage) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
-		sm.ID = fmt.Sprintf("%s@%s", sm.SourceID, sm.ScheduledAt.Format(time.RFC3339Nano))
+		sm.ID = s.generateID(sm.SourceID, sm.ScheduledAt, sm.Type, sm.Destination)
 
 		buf, err := json.Marshal(sm)
 		if err != nil {
@@ -100,11 +102,11 @@ func (s *Store) AddSentMessage(sm *SentMessage) error {
 }
 
 // HasBeenSent checks if a message with the given sourceID and scheduledAt time has been sent.
-func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time) (bool, error) {
+func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error) {
 	var sent bool
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
-		id := fmt.Sprintf("%s@%s", sourceID, scheduledAt.Format(time.RFC3339Nano))
+		id := s.generateID(sourceID, scheduledAt, destType, destination)
 		v := b.Get([]byte(id))
 		if v != nil {
 			var sm SentMessage
@@ -121,6 +123,16 @@ func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time) (bool, error
 		return false, fmt.Errorf("failed to check if message has been sent: %w", err)
 	}
 	return sent, nil
+}
+
+func (s *Store) generateID(sourceID string, scheduledAt time.Time, destType, destination string) string {
+	parts := []string{
+		sourceID,
+		scheduledAt.Format(time.RFC3339Nano),
+		destType,
+		destination,
+	}
+	return strings.Join(parts, "@")
 }
 
 // ListSentMessages retrieves all sent messages from the store.

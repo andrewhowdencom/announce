@@ -118,69 +118,82 @@ func processCall(store datastore.Storer, slackClient slack.Client, emailClient e
 	lookbackPeriod := viper.GetDuration("worker.lookback_period")
 	if effectiveScheduledAt.Before(now.Add(-lookbackPeriod)) {
 		fmt.Printf("Skipping call %s scheduled at %s because it is outside the lookback period\n", call.ID, effectiveScheduledAt)
-		return store.AddSentMessage(&datastore.SentMessage{
-			SourceID:    call.ID,
-			ScheduledAt: effectiveScheduledAt,
-			Status:      datastore.StatusFailed,
-		})
-	}
-
-	hasBeenSent, err := store.HasBeenSent(call.ID, effectiveScheduledAt)
-	if err != nil {
-		return fmt.Errorf("failed to check if call has been sent: %w", err)
-	}
-	if hasBeenSent {
+		for _, dest := range call.Destinations {
+			for _, to := range dest.To {
+				err := store.AddSentMessage(&datastore.SentMessage{
+					SourceID:    call.ID,
+					ScheduledAt: effectiveScheduledAt,
+					Status:      datastore.StatusFailed,
+					Type:        dest.Type,
+					Destination: to,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to add sent message: %w", err)
+				}
+			}
+		}
 		return nil
 	}
 
-	if call.Email != nil {
-		fmt.Printf("Sending email call %s for %v... ", call.ID, effectiveScheduledAt)
-
-		err := emailClient.Send(call.Email)
-		sentMessage := &datastore.SentMessage{
-			SourceID:    call.ID,
-			ScheduledAt: effectiveScheduledAt,
-		}
-
-		if err != nil {
-			sentMessage.Status = datastore.StatusFailed
-			fmt.Printf("failed: %v\n", err)
-		} else {
-			sentMessage.Status = datastore.StatusSent
-			fmt.Println("done")
-		}
-
-		if err := store.AddSentMessage(sentMessage); err != nil {
-			return err
-		}
-	}
-
 	for _, dest := range call.Destinations {
-		switch dest.Type {
-		case "slack":
-			fmt.Printf("Sending call %s to Slack channel %s for %v... ", call.ID, dest.ChannelID, effectiveScheduledAt)
-
-			timestamp, err := slackClient.PostMessage(dest.ChannelID, call.Content)
-			sentMessage := &datastore.SentMessage{
-				SourceID:    call.ID,
-				ScheduledAt: effectiveScheduledAt,
-				Timestamp:   timestamp,
-				ChannelID:   dest.ChannelID,
-			}
-
+		for _, to := range dest.To {
+			hasBeenSent, err := store.HasBeenSent(call.ID, effectiveScheduledAt, dest.Type, to)
 			if err != nil {
-				sentMessage.Status = datastore.StatusFailed
-				fmt.Printf("failed: %v\n", err)
-			} else {
-				sentMessage.Status = datastore.StatusSent
-				fmt.Println("done")
+				return fmt.Errorf("failed to check if call has been sent: %w", err)
+			}
+			if hasBeenSent {
+				continue
 			}
 
-			if err := store.AddSentMessage(sentMessage); err != nil {
-				return err
+			switch dest.Type {
+			case "slack":
+				fmt.Printf("Sending call %s to Slack channel %s for %v... ", call.ID, to, effectiveScheduledAt)
+
+				timestamp, err := slackClient.PostMessage(to, call.Subject, call.Content)
+				sentMessage := &datastore.SentMessage{
+					SourceID:    call.ID,
+					ScheduledAt: effectiveScheduledAt,
+					Timestamp:   timestamp,
+					Destination: to,
+					Type:        dest.Type,
+				}
+
+				if err != nil {
+					sentMessage.Status = datastore.StatusFailed
+					fmt.Printf("failed: %v\n", err)
+				} else {
+					sentMessage.Status = datastore.StatusSent
+					fmt.Println("done")
+				}
+
+				if err := store.AddSentMessage(sentMessage); err != nil {
+					return err
+				}
+			case "email":
+				fmt.Printf("Sending call %s to email %s for %v... ", call.ID, to, effectiveScheduledAt)
+
+				err := emailClient.Send([]string{to}, call.Subject, call.Content)
+				sentMessage := &datastore.SentMessage{
+					SourceID:    call.ID,
+					ScheduledAt: effectiveScheduledAt,
+					Destination: to,
+					Type:        dest.Type,
+				}
+
+				if err != nil {
+					sentMessage.Status = datastore.StatusFailed
+					fmt.Printf("failed: %v\n", err)
+				} else {
+					sentMessage.Status = datastore.StatusSent
+					fmt.Println("done")
+				}
+
+				if err := store.AddSentMessage(sentMessage); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported destination type: %s", dest.Type)
 			}
-		default:
-			return fmt.Errorf("unsupported destination type: %s", dest.Type)
 		}
 	}
 

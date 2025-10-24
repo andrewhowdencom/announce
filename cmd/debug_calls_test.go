@@ -22,12 +22,12 @@ func TestDebugCallsCmd(t *testing.T) {
 - id: call-1
   destinations:
     - type: slack
-      channel_id: "#general"
+      to: ["#general"]
   content: "Hello, world!"
 - id: call-2
   destinations:
     - type: slack
-      channel_id: "#random"
+      to: ["#random"]
   content: "This is a test."
 `
 	validFile := filepath.Join(tmpDir, "valid.yaml")
@@ -59,7 +59,7 @@ func TestDebugCallsCmd(t *testing.T) {
     "destinations": [
       {
         "type": "slack",
-        "channel_id": "#general"
+        "to": ["#general"]
       }
     ],
     "content": "Hello, world!"
@@ -70,7 +70,7 @@ func TestDebugCallsCmd(t *testing.T) {
     "destinations": [
       {
         "type": "slack",
-        "channel_id": "#random"
+        "to": ["#random"]
       }
     ],
     "content": "This is a test."

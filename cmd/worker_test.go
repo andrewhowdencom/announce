@@ -37,11 +37,16 @@ func TestRunTick(t *testing.T) {
 		calls: []*model.Call{
 			{
 				ID:      "1",
+				Subject: "Test Subject",
 				Content: "Hello, world!",
 				Destinations: []model.Destination{
 					{
-						Type:      "slack",
-						ChannelID: "C1234567890",
+						Type: "slack",
+						To:   []string{"test-channel"},
+					},
+					{
+						Type: "email",
+						To:   []string{"test@example.com"},
 					},
 				},
 				ScheduledAt: time.Now().Add(-1 * time.Minute),
@@ -58,8 +63,9 @@ func TestRunTick(t *testing.T) {
 
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
-	assert.Len(t, sentMessages, 1)
+	assert.Len(t, sentMessages, 2)
 	assert.Equal(t, "1", sentMessages[0].SourceID)
+	assert.Equal(t, "1", sentMessages[1].SourceID)
 }
 
 func TestRunTickWithOldCall(t *testing.T) {
@@ -80,8 +86,8 @@ func TestRunTickWithOldCall(t *testing.T) {
 				Content: "Hello, world!",
 				Destinations: []model.Destination{
 					{
-						Type:      "slack",
-						ChannelID: "C1234567890",
+						Type: "slack",
+						To:   []string{"test-channel"},
 					},
 				},
 				ScheduledAt: time.Now().Add(-48 * time.Hour),
