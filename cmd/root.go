@@ -4,9 +4,10 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/adrg/xdg"
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ import (
 )
 
 var cfgFile string
+var logLevel string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -38,6 +40,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/ruf/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -59,8 +63,28 @@ func initConfig() {
 	viper.SetEnvPrefix("RUF")
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	configReadErr := viper.ReadInConfig()
+
+	// Initialise the logger
+	var programLevel = new(slog.LevelVar)
+	switch strings.ToLower(viper.GetString("log.level")) {
+	case "debug":
+		programLevel.Set(slog.LevelDebug)
+	case "warn":
+		programLevel.Set(slog.LevelWarn)
+	case "error":
+		programLevel.Set(slog.LevelError)
+	default:
+		programLevel.Set(slog.LevelInfo)
+	}
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: programLevel})
+	slog.SetDefault(slog.New(handler))
+
+	if configReadErr != nil {
+		if _, ok := configReadErr.(viper.ConfigFileNotFoundError); ok {
+			slog.Warn("config file not found")
+		} else {
+			slog.Warn("could not read config file, using defaults", "error", configReadErr)
+		}
 	}
 }
