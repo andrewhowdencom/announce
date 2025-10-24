@@ -19,6 +19,8 @@ const (
 	StatusSent Status = "sent"
 	// StatusFailed means the call failed to send.
 	StatusFailed Status = "failed"
+	// StatusDeleted means the call has been deleted.
+	StatusDeleted Status = "deleted"
 )
 
 // SentMessage represents a message that has been sent.
@@ -27,6 +29,7 @@ type SentMessage struct {
 	SourceID    string    `json:"source_id"`
 	ScheduledAt time.Time `json:"scheduled_at"`
 	Timestamp   string    `json:"timestamp"` // Slack timestamp
+	ChannelID   string    `json:"channel_id"`
 	Status      Status    `json:"status"`
 }
 
@@ -35,6 +38,7 @@ type Storer interface {
 	AddSentMessage(sm *SentMessage) error
 	HasBeenSent(sourceID string, scheduledAt time.Time) (bool, error)
 	ListSentMessages() ([]*SentMessage, error)
+	GetSentMessage(id string) (*SentMessage, error)
 	DeleteSentMessage(id string) error
 	Close() error
 }
@@ -97,20 +101,26 @@ func (s *Store) AddSentMessage(sm *SentMessage) error {
 
 // HasBeenSent checks if a message with the given sourceID and scheduledAt time has been sent.
 func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time) (bool, error) {
-	var exists bool
+	var sent bool
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
 		id := fmt.Sprintf("%s@%s", sourceID, scheduledAt.Format(time.RFC3339Nano))
 		v := b.Get([]byte(id))
 		if v != nil {
-			exists = true
+			var sm SentMessage
+			if err := json.Unmarshal(v, &sm); err != nil {
+				return fmt.Errorf("failed to unmarshal sent message: %w", err)
+			}
+			if sm.Status != StatusDeleted {
+				sent = true
+			}
 		}
 		return nil
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to check if message has been sent: %w", err)
 	}
-	return exists, nil
+	return sent, nil
 }
 
 // ListSentMessages retrieves all sent messages from the store.
@@ -133,10 +143,46 @@ func (s *Store) ListSentMessages() ([]*SentMessage, error) {
 	return sentMessages, nil
 }
 
+// GetSentMessage retrieves a single sent message from the store.
+func (s *Store) GetSentMessage(id string) (*SentMessage, error) {
+	var sm SentMessage
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(sentMessagesBucket)
+		v := b.Get([]byte(id))
+		if v == nil {
+			return fmt.Errorf("message with id '%s' not found", id)
+		}
+		if err := json.Unmarshal(v, &sm); err != nil {
+			return fmt.Errorf("failed to unmarshal sent message: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &sm, nil
+}
+
 // DeleteSentMessage removes a sent message from the store.
 func (s *Store) DeleteSentMessage(id string) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
-		return b.Delete([]byte(id))
+		v := b.Get([]byte(id))
+		if v == nil {
+			return fmt.Errorf("message with id '%s' not found", id)
+		}
+
+		var sm SentMessage
+		if err := json.Unmarshal(v, &sm); err != nil {
+			return fmt.Errorf("failed to unmarshal sent message: %w", err)
+		}
+
+		sm.Status = StatusDeleted
+
+		buf, err := json.Marshal(sm)
+		if err != nil {
+			return fmt.Errorf("failed to marshal sent message: %w", err)
+		}
+		return b.Put([]byte(id), buf)
 	})
 }
