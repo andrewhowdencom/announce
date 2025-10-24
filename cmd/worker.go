@@ -119,6 +119,7 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 				SourceID:    call.ID,
 				ScheduledAt: effectiveScheduledAt,
 				Timestamp:   timestamp,
+				ChannelID:   dest.ChannelID,
 			}
 
 			if err != nil {

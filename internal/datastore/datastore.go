@@ -29,6 +29,7 @@ type SentMessage struct {
 	SourceID    string    `json:"source_id"`
 	ScheduledAt time.Time `json:"scheduled_at"`
 	Timestamp   string    `json:"timestamp"` // Slack timestamp
+	ChannelID   string    `json:"channel_id"`
 	Status      Status    `json:"status"`
 }
 

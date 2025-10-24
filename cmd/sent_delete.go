@@ -28,10 +28,8 @@ var sentDeleteCmd = &cobra.Command{
 			return fmt.Errorf("failed to get sent message: %w", err)
 		}
 
-		// TODO: This assumes the first destination is the one we want to delete from.
-		// This is a limitation of the current design.
 		client := slack.NewClient(viper.GetString("slack.token"))
-		if err := client.DeleteMessage(viper.GetString("destinations.slack.channel_id"), sm.Timestamp); err != nil {
+		if err := client.DeleteMessage(sm.ChannelID, sm.Timestamp); err != nil {
 			return fmt.Errorf("failed to delete message from slack: %w", err)
 		}
 
