@@ -22,6 +22,11 @@ The application is configured using a YAML file located at `$XDG_CONFIG_HOME/ruf
 | --- | --- |
 | `source.urls` | A list of URLs to fetch calls from. Both remote (`https://...`) and local (`file://...`) URLs are supported. |
 | `slack.app_token` | The Slack app token to use for sending calls. |
+| `email.from` | The email address to send emails from. |
+| `email.host` | The SMTP server host. |
+| `email.port` | The SMTP server port. |
+| `email.username` | The SMTP server username. |
+| `email.password` | The SMTP server password. |
 
 ### Example
 
@@ -33,6 +38,13 @@ source:
 
 slack:
   app_token: ""
+
+email:
+  from: "sender@example.com"
+  host: "smtp.example.com"
+  port: 587
+  username: "user"
+  password: "password"
 ```
 
 ## Call Format
@@ -52,6 +64,13 @@ The application expects the source YAML files to contain a list of calls with th
     - type: "slack"
       channel_id: "C1234567890"
   cron: "0 * * * *"
+- id: "unique-id-3"
+  email:
+    to:
+      - "recipient@example.com"
+    subject: "An Important Update"
+    body: "This is the content of the email."
+  scheduled_at: "2025-01-01T12:00:00Z"
 ```
 
 ## Getting it

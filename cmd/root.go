@@ -38,6 +38,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/ruf/config.yaml)")
+	rootCmd.PersistentFlags().String("email.from", "", "Email from address")
+	rootCmd.PersistentFlags().String("email.host", "", "Email host")
+	rootCmd.PersistentFlags().Int("email.port", 587, "Email port")
+	rootCmd.PersistentFlags().String("email.username", "", "Email username")
+	rootCmd.PersistentFlags().String("email.password", "", "Email password")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -63,4 +68,10 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	_ = viper.BindPFlag("email.from", rootCmd.PersistentFlags().Lookup("email.from"))
+	_ = viper.BindPFlag("email.host", rootCmd.PersistentFlags().Lookup("email.host"))
+	_ = viper.BindPFlag("email.port", rootCmd.PersistentFlags().Lookup("email.port"))
+	_ = viper.BindPFlag("email.username", rootCmd.PersistentFlags().Lookup("email.username"))
+	_ = viper.BindPFlag("email.password", rootCmd.PersistentFlags().Lookup("email.password"))
 }

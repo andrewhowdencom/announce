@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andrewhowdencom/ruf/internal/config"
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
+	"github.com/andrewhowdencom/ruf/internal/email"
 	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/sourcer"
+	"github.com/andrewhowdencom/ruf/internal/worker"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -39,8 +42,16 @@ func runWorker() error {
 	}
 	defer store.Close()
 
+	var cfg config.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
 	slackToken := viper.GetString("slack.app.token")
 	slackClient := slack.NewClient(slackToken)
+
+	emailClient := email.NewSMTPClient(cfg.Email)
+	emailWorker := worker.NewEmailWorker(emailClient)
 
 	s := buildSourcer()
 
@@ -49,7 +60,7 @@ func runWorker() error {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if err := runTick(store, slackClient, s); err != nil {
+		if err := runTick(store, slackClient, emailWorker, s); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
@@ -57,7 +68,7 @@ func runWorker() error {
 	return nil
 }
 
-func runTick(store datastore.Storer, slackClient slack.Client, s sourcer.Sourcer) error {
+func runTick(store datastore.Storer, slackClient slack.Client, emailWorker *worker.EmailWorker, s sourcer.Sourcer) error {
 	urls := viper.GetStringSlice("source.urls")
 	var allCalls []*model.Call
 
@@ -71,7 +82,7 @@ func runTick(store datastore.Storer, slackClient slack.Client, s sourcer.Sourcer
 	}
 
 	for _, call := range allCalls {
-		if err := processCall(store, slackClient, call); err != nil {
+		if err := processCall(store, slackClient, emailWorker, call); err != nil {
 			fmt.Printf("Error processing call %s: %v\n", call.ID, err)
 		}
 	}
@@ -79,7 +90,7 @@ func runTick(store datastore.Storer, slackClient slack.Client, s sourcer.Sourcer
 	return nil
 }
 
-func processCall(store datastore.Storer, slackClient slack.Client, call *model.Call) error {
+func processCall(store datastore.Storer, slackClient slack.Client, emailWorker *worker.EmailWorker, call *model.Call) error {
 	now := time.Now()
 	var effectiveScheduledAt time.Time
 
@@ -106,6 +117,24 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 		return fmt.Errorf("failed to check if call has been sent: %w", err)
 	}
 	if hasBeenSent {
+		return nil
+	}
+
+	if call.Email != nil {
+		if err := emailWorker.Process(*call); err != nil {
+			fmt.Printf("Error sending email for call %s: %v\n", call.ID, err)
+			return nil // Log and continue
+		}
+
+		sentMessage := &datastore.SentMessage{
+			SourceID:    call.ID,
+			ScheduledAt: effectiveScheduledAt,
+			Timestamp:   time.Now().UTC().String(),
+			Status:      datastore.StatusSent,
+		}
+		if err := store.AddSentMessage(sentMessage); err != nil {
+			return err
+		}
 		return nil
 	}
 
