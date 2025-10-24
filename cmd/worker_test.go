@@ -7,6 +7,7 @@ import (
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
+	"github.com/andrewhowdencom/ruf/internal/poller"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,8 +17,8 @@ type mockSourcer struct {
 	err   error
 }
 
-func (m *mockSourcer) Source(url string) ([]*model.Call, error) {
-	return m.calls, m.err
+func (m *mockSourcer) Source(url string) ([]*model.Call, string, error) {
+	return m.calls, "state", m.err
 }
 
 func TestRunTick(t *testing.T) {
@@ -44,9 +45,11 @@ func TestRunTick(t *testing.T) {
 		},
 	}
 
+	p := poller.New(s, 1*time.Minute)
+
 	viper.Set("source.urls", []string{"mock://url"})
 
-	err := runTick(store, slackClient, s)
+	err := runTick(store, slackClient, p)
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()

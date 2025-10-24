@@ -33,8 +33,8 @@ func (s *MockStore) HasBeenSent(sourceID string, scheduledAt time.Time) (bool, e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id := fmt.Sprintf("%s@%s", sourceID, scheduledAt.Format(time.RFC3339Nano))
-	_, ok := s.sentMessages[id]
-	return ok, nil
+	sm, ok := s.sentMessages[id]
+	return ok && sm.Status != StatusDeleted, nil
 }
 
 // ListSentMessages retrieves all sent messages from the mock store.
@@ -48,11 +48,26 @@ func (s *MockStore) ListSentMessages() ([]*SentMessage, error) {
 	return sentMessages, nil
 }
 
+// GetSentMessage retrieves a single sent message from the mock store.
+func (s *MockStore) GetSentMessage(id string) (*SentMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sm, ok := s.sentMessages[id]
+	if !ok {
+		return nil, fmt.Errorf("message with id '%s' not found", id)
+	}
+	return sm, nil
+}
+
 // DeleteSentMessage removes a sent message from the mock store.
 func (s *MockStore) DeleteSentMessage(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.sentMessages, id)
+	sm, ok := s.sentMessages[id]
+	if !ok {
+		return fmt.Errorf("message with id '%s' not found", id)
+	}
+	sm.Status = StatusDeleted
 	return nil
 }
 

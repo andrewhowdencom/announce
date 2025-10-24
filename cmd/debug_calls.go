@@ -20,7 +20,7 @@ var debugCallsCmd = &cobra.Command{
 		var allCalls []*model.Call
 
 		for _, url := range urls {
-			calls, err := s.Source(url)
+			calls, _, err := s.Source(url)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error sourcing from %s: %v\n", url, err)
 				continue
