@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andrewhowdencom/ruf/internal/clients/email"
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
@@ -28,16 +29,24 @@ func TestRunTick(t *testing.T) {
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
 
+	// Mock Email client
+	emailClient := email.NewMockClient()
+
 	// Mock sourcer
 	s := &mockSourcer{
 		calls: []*model.Call{
 			{
 				ID:      "1",
+				Subject: "Test Subject",
 				Content: "Hello, world!",
 				Destinations: []model.Destination{
 					{
-						Type:      "slack",
-						ChannelID: "C1234567890",
+						Type: "slack",
+						To:   []string{"test-channel"},
+					},
+					{
+						Type: "email",
+						To:   []string{"test@example.com"},
 					},
 				},
 				ScheduledAt: time.Now().Add(-1 * time.Minute),
@@ -49,13 +58,14 @@ func TestRunTick(t *testing.T) {
 
 	viper.Set("source.urls", []string{"mock://url"})
 
-	err := runTick(store, slackClient, p)
+	err := runTick(store, slackClient, emailClient, p)
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
-	assert.Len(t, sentMessages, 1)
+	assert.Len(t, sentMessages, 2)
 	assert.Equal(t, "1", sentMessages[0].SourceID)
+	assert.Equal(t, "1", sentMessages[1].SourceID)
 }
 
 func TestRunTickWithOldCall(t *testing.T) {
@@ -65,6 +75,9 @@ func TestRunTickWithOldCall(t *testing.T) {
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
 
+	// Mock Email client
+	emailClient := email.NewMockClient()
+
 	// Mock sourcer
 	s := &mockSourcer{
 		calls: []*model.Call{
@@ -73,8 +86,8 @@ func TestRunTickWithOldCall(t *testing.T) {
 				Content: "Hello, world!",
 				Destinations: []model.Destination{
 					{
-						Type:      "slack",
-						ChannelID: "C1234567890",
+						Type: "slack",
+						To:   []string{"test-channel"},
 					},
 				},
 				ScheduledAt: time.Now().Add(-48 * time.Hour),
@@ -87,7 +100,7 @@ func TestRunTickWithOldCall(t *testing.T) {
 	viper.Set("source.urls", []string{"mock://url"})
 	viper.Set("worker.lookback_period", "24h")
 
-	err := runTick(store, slackClient, p)
+	err := runTick(store, slackClient, emailClient, p)
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()

@@ -42,6 +42,12 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/ruf/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
+
+	viper.SetDefault("email.host", "")
+	viper.SetDefault("email.port", 587)
+	viper.SetDefault("email.username", "")
+	viper.SetDefault("email.password", "")
+	viper.SetDefault("email.from", "")
 }
 
 // initConfig reads in config file and ENV variables if set.

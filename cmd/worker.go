@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andrewhowdencom/ruf/internal/clients/email"
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
@@ -43,6 +44,14 @@ func runWorker() error {
 	slackToken := viper.GetString("slack.app.token")
 	slackClient := slack.NewClient(slackToken)
 
+	emailClient := email.NewClient(
+		viper.GetString("email.host"),
+		viper.GetInt("email.port"),
+		viper.GetString("email.username"),
+		viper.GetString("email.password"),
+		viper.GetString("email.from"),
+	)
+
 	s := buildSourcer()
 	pollInterval := viper.GetDuration("worker.interval")
 	if pollInterval == 0 {
@@ -55,12 +64,12 @@ func runWorker() error {
 	defer ticker.Stop()
 
 	// Run a poll on startup
-	if err := runTick(store, slackClient, p); err != nil {
+	if err := runTick(store, slackClient, emailClient, p); err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
 
 	for range ticker.C {
-		if err := runTick(store, slackClient, p); err != nil {
+		if err := runTick(store, slackClient, emailClient, p); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
@@ -68,7 +77,7 @@ func runWorker() error {
 	return nil
 }
 
-func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller) error {
+func runTick(store datastore.Storer, slackClient slack.Client, emailClient email.Client, p *poller.Poller) error {
 	urls := viper.GetStringSlice("source.urls")
 	calls, err := p.Poll(urls)
 	if err != nil {
@@ -76,7 +85,7 @@ func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller)
 	}
 
 	for _, call := range calls {
-		if err := processCall(store, slackClient, call); err != nil {
+		if err := processCall(store, slackClient, emailClient, call); err != nil {
 			fmt.Printf("Error processing call %s: %v\n", call.ID, err)
 		}
 	}
@@ -84,7 +93,7 @@ func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller)
 	return nil
 }
 
-func processCall(store datastore.Storer, slackClient slack.Client, call *model.Call) error {
+func processCall(store datastore.Storer, slackClient slack.Client, emailClient email.Client, call *model.Call) error {
 	now := time.Now()
 	var effectiveScheduledAt time.Time
 
@@ -109,47 +118,82 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 	lookbackPeriod := viper.GetDuration("worker.lookback_period")
 	if effectiveScheduledAt.Before(now.Add(-lookbackPeriod)) {
 		fmt.Printf("Skipping call %s scheduled at %s because it is outside the lookback period\n", call.ID, effectiveScheduledAt)
-		return store.AddSentMessage(&datastore.SentMessage{
-			SourceID:    call.ID,
-			ScheduledAt: effectiveScheduledAt,
-			Status:      datastore.StatusFailed,
-		})
-	}
-
-	hasBeenSent, err := store.HasBeenSent(call.ID, effectiveScheduledAt)
-	if err != nil {
-		return fmt.Errorf("failed to check if call has been sent: %w", err)
-	}
-	if hasBeenSent {
+		for _, dest := range call.Destinations {
+			for _, to := range dest.To {
+				err := store.AddSentMessage(&datastore.SentMessage{
+					SourceID:    call.ID,
+					ScheduledAt: effectiveScheduledAt,
+					Status:      datastore.StatusFailed,
+					Type:        dest.Type,
+					Destination: to,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to add sent message: %w", err)
+				}
+			}
+		}
 		return nil
 	}
 
 	for _, dest := range call.Destinations {
-		switch dest.Type {
-		case "slack":
-			fmt.Printf("Sending call %s to Slack channel %s for %v... ", call.ID, dest.ChannelID, effectiveScheduledAt)
-
-			timestamp, err := slackClient.PostMessage(dest.ChannelID, call.Content)
-			sentMessage := &datastore.SentMessage{
-				SourceID:    call.ID,
-				ScheduledAt: effectiveScheduledAt,
-				Timestamp:   timestamp,
-				ChannelID:   dest.ChannelID,
-			}
-
+		for _, to := range dest.To {
+			hasBeenSent, err := store.HasBeenSent(call.ID, effectiveScheduledAt, dest.Type, to)
 			if err != nil {
-				sentMessage.Status = datastore.StatusFailed
-				fmt.Printf("failed: %v\n", err)
-			} else {
-				sentMessage.Status = datastore.StatusSent
-				fmt.Println("done")
+				return fmt.Errorf("failed to check if call has been sent: %w", err)
+			}
+			if hasBeenSent {
+				continue
 			}
 
-			if err := store.AddSentMessage(sentMessage); err != nil {
-				return err
+			switch dest.Type {
+			case "slack":
+				fmt.Printf("Sending call %s to Slack channel %s for %v... ", call.ID, to, effectiveScheduledAt)
+
+				timestamp, err := slackClient.PostMessage(to, call.Subject, call.Content)
+				sentMessage := &datastore.SentMessage{
+					SourceID:    call.ID,
+					ScheduledAt: effectiveScheduledAt,
+					Timestamp:   timestamp,
+					Destination: to,
+					Type:        dest.Type,
+				}
+
+				if err != nil {
+					sentMessage.Status = datastore.StatusFailed
+					fmt.Printf("failed: %v\n", err)
+				} else {
+					sentMessage.Status = datastore.StatusSent
+					fmt.Println("done")
+				}
+
+				if err := store.AddSentMessage(sentMessage); err != nil {
+					return err
+				}
+			case "email":
+				fmt.Printf("Sending call %s to email %s for %v... ", call.ID, to, effectiveScheduledAt)
+
+				err := emailClient.Send([]string{to}, call.Subject, call.Content)
+				sentMessage := &datastore.SentMessage{
+					SourceID:    call.ID,
+					ScheduledAt: effectiveScheduledAt,
+					Destination: to,
+					Type:        dest.Type,
+				}
+
+				if err != nil {
+					sentMessage.Status = datastore.StatusFailed
+					fmt.Printf("failed: %v\n", err)
+				} else {
+					sentMessage.Status = datastore.StatusSent
+					fmt.Println("done")
+				}
+
+				if err := store.AddSentMessage(sentMessage); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported destination type: %s", dest.Type)
 			}
-		default:
-			return fmt.Errorf("unsupported destination type: %s", dest.Type)
 		}
 	}
 

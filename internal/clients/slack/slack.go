@@ -9,8 +9,8 @@ import (
 
 // Client is an interface that defines the methods for interacting with the Slack API.
 type Client interface {
-	PostMessage(channelID, text string) (string, error)
-	DeleteMessage(channelID, timestamp string) error
+	PostMessage(channel, subject, text string) (string, error)
+	DeleteMessage(channel, timestamp string) error
 	GetChannelID(channelName string) (string, error)
 }
 
@@ -27,8 +27,18 @@ func NewClient(token string) Client {
 }
 
 // PostMessage sends a message to a Slack channel.
-func (c *client) PostMessage(channelID, text string) (string, error) {
-	_, timestamp, err := c.api.PostMessage(channelID, slack.MsgOptionText(text, false))
+func (c *client) PostMessage(channel, subject, text string) (string, error) {
+	message := text
+	if subject != "" {
+		message = fmt.Sprintf("*%s*\n%s", subject, text)
+	}
+
+	channelID, err := c.GetChannelID(channel)
+	if err != nil {
+		return "", fmt.Errorf("failed to get channel id: %w", err)
+	}
+
+	_, timestamp, err := c.api.PostMessage(channelID, slack.MsgOptionText(message, false))
 	if err != nil {
 		return "", fmt.Errorf("failed to post message: %w", err)
 	}
@@ -36,8 +46,12 @@ func (c *client) PostMessage(channelID, text string) (string, error) {
 }
 
 // DeleteMessage deletes a message from a Slack channel.
-func (c *client) DeleteMessage(channelID, timestamp string) error {
-	_, _, err := c.api.DeleteMessage(channelID, timestamp)
+func (c *client) DeleteMessage(channel, timestamp string) error {
+	channelID, err := c.GetChannelID(channel)
+	if err != nil {
+		return fmt.Errorf("failed to get channel id: %w", err)
+	}
+	_, _, err = c.api.DeleteMessage(channelID, timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to delete message: %w", err)
 	}

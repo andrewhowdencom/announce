@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,18 +24,28 @@ func NewMockStore() *MockStore {
 func (s *MockStore) AddSentMessage(sm *SentMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	sm.ID = fmt.Sprintf("%s@%s", sm.SourceID, sm.ScheduledAt.Format(time.RFC3339Nano))
+	sm.ID = s.generateID(sm.SourceID, sm.ScheduledAt, sm.Type, sm.Destination)
 	s.sentMessages[sm.ID] = sm
 	return nil
 }
 
 // HasBeenSent checks if a message with the given sourceID and scheduledAt time has been sent.
-func (s *MockStore) HasBeenSent(sourceID string, scheduledAt time.Time) (bool, error) {
+func (s *MockStore) HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	id := fmt.Sprintf("%s@%s", sourceID, scheduledAt.Format(time.RFC3339Nano))
+	id := s.generateID(sourceID, scheduledAt, destType, destination)
 	sm, ok := s.sentMessages[id]
 	return ok && sm.Status != StatusDeleted, nil
+}
+
+func (s *MockStore) generateID(sourceID string, scheduledAt time.Time, destType, destination string) string {
+	parts := []string{
+		sourceID,
+		scheduledAt.Format(time.RFC3339Nano),
+		destType,
+		destination,
+	}
+	return strings.Join(parts, "@")
 }
 
 // ListSentMessages retrieves all sent messages from the mock store.
