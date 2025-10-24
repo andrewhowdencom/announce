@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andrewhowdencom/ruf/internal/clients/email"
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
@@ -43,6 +44,14 @@ func runWorker() error {
 	slackToken := viper.GetString("slack.app.token")
 	slackClient := slack.NewClient(slackToken)
 
+	emailClient := email.NewClient(
+		viper.GetString("email.host"),
+		viper.GetInt("email.port"),
+		viper.GetString("email.username"),
+		viper.GetString("email.password"),
+		viper.GetString("email.from"),
+	)
+
 	s := buildSourcer()
 	pollInterval := viper.GetDuration("worker.interval")
 	if pollInterval == 0 {
@@ -55,12 +64,12 @@ func runWorker() error {
 	defer ticker.Stop()
 
 	// Run a poll on startup
-	if err := runTick(store, slackClient, p); err != nil {
+	if err := runTick(store, slackClient, emailClient, p); err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
 
 	for range ticker.C {
-		if err := runTick(store, slackClient, p); err != nil {
+		if err := runTick(store, slackClient, emailClient, p); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
@@ -68,7 +77,7 @@ func runWorker() error {
 	return nil
 }
 
-func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller) error {
+func runTick(store datastore.Storer, slackClient slack.Client, emailClient email.Client, p *poller.Poller) error {
 	urls := viper.GetStringSlice("source.urls")
 	calls, err := p.Poll(urls)
 	if err != nil {
@@ -76,7 +85,7 @@ func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller)
 	}
 
 	for _, call := range calls {
-		if err := processCall(store, slackClient, call); err != nil {
+		if err := processCall(store, slackClient, emailClient, call); err != nil {
 			fmt.Printf("Error processing call %s: %v\n", call.ID, err)
 		}
 	}
@@ -84,7 +93,7 @@ func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller)
 	return nil
 }
 
-func processCall(store datastore.Storer, slackClient slack.Client, call *model.Call) error {
+func processCall(store datastore.Storer, slackClient slack.Client, emailClient email.Client, call *model.Call) error {
 	now := time.Now()
 	var effectiveScheduledAt time.Time
 
@@ -122,6 +131,28 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 	}
 	if hasBeenSent {
 		return nil
+	}
+
+	if call.Email != nil {
+		fmt.Printf("Sending email call %s for %v... ", call.ID, effectiveScheduledAt)
+
+		err := emailClient.Send(call.Email)
+		sentMessage := &datastore.SentMessage{
+			SourceID:    call.ID,
+			ScheduledAt: effectiveScheduledAt,
+		}
+
+		if err != nil {
+			sentMessage.Status = datastore.StatusFailed
+			fmt.Printf("failed: %v\n", err)
+		} else {
+			sentMessage.Status = datastore.StatusSent
+			fmt.Println("done")
+		}
+
+		if err := store.AddSentMessage(sentMessage); err != nil {
+			return err
+		}
 	}
 
 	for _, dest := range call.Destinations {

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andrewhowdencom/ruf/internal/clients/email"
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
@@ -28,6 +29,9 @@ func TestRunTick(t *testing.T) {
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
 
+	// Mock Email client
+	emailClient := email.NewMockClient()
+
 	// Mock sourcer
 	s := &mockSourcer{
 		calls: []*model.Call{
@@ -49,7 +53,7 @@ func TestRunTick(t *testing.T) {
 
 	viper.Set("source.urls", []string{"mock://url"})
 
-	err := runTick(store, slackClient, p)
+	err := runTick(store, slackClient, emailClient, p)
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()
@@ -64,6 +68,9 @@ func TestRunTickWithOldCall(t *testing.T) {
 
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
+
+	// Mock Email client
+	emailClient := email.NewMockClient()
 
 	// Mock sourcer
 	s := &mockSourcer{
@@ -87,7 +94,7 @@ func TestRunTickWithOldCall(t *testing.T) {
 	viper.Set("source.urls", []string{"mock://url"})
 	viper.Set("worker.lookback_period", "24h")
 
-	err := runTick(store, slackClient, p)
+	err := runTick(store, slackClient, emailClient, p)
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()

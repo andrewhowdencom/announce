@@ -8,6 +8,13 @@ type Destination struct {
 	ChannelID string `json:"channel_id" yaml:"channel_id"`
 }
 
+// Email represents an email to be sent.
+type Email struct {
+	To      []string `json:"to" yaml:"to"`
+	Subject string   `json:"subject" yaml:"subject"`
+	Body    string   `json:"body" yaml:"body"`
+}
+
 // Call represents a message to be sent to a destination.
 type Call struct {
 	ID           string        `json:"id" yaml:"id"`
@@ -16,4 +23,5 @@ type Call struct {
 	ScheduledAt  time.Time     `json:"scheduled_at" yaml:"scheduled_at"`
 	Cron         string        `json:"cron,omitempty" yaml:"cron,omitempty"`
 	Recurring    bool          `json:"recurring,omitempty" yaml:"recurring,omitempty"`
+	Email        *Email        `json:"email,omitempty" yaml:"email,omitempty"`
 }
