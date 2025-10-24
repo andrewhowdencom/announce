@@ -32,7 +32,8 @@ source:
     - "file:///path/to/local/announcements.yaml"
 
 slack:
-  app_token: ""
+  app:
+    token: ""
 ```
 
 ## Call Format
