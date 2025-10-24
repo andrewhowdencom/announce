@@ -27,7 +27,7 @@ var sentListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"ID", "Status", "Source ID", "Scheduled At", "Timestamp"})
+		table.Header([]string{"ID", "Status", "Source ID", "Scheduled At", "Timestamp"})
 
 		for _, m := range messages {
 			table.Append([]string{m.ID, string(m.Status), m.SourceID, m.ScheduledAt.String(), m.Timestamp})
