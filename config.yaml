@@ -3,6 +3,9 @@ source:
     - "https://example.com/announcements.yaml"
     - "file:///path/to/local/announcements.yaml"
 
+worker:
+  lookback_period: 24h
+
 slack:
   app:
     token: ""
