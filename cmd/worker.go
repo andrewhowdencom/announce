@@ -7,6 +7,7 @@ import (
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
+	"github.com/andrewhowdencom/ruf/internal/poller"
 	"github.com/andrewhowdencom/ruf/internal/sourcer"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
@@ -43,13 +44,23 @@ func runWorker() error {
 	slackClient := slack.NewClient(slackToken)
 
 	s := buildSourcer()
+	pollInterval := viper.GetDuration("worker.interval")
+	if pollInterval == 0 {
+		pollInterval = 1 * time.Minute
+	}
+	p := poller.New(s, pollInterval)
 
 	fmt.Println("Starting worker...")
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	// Run a poll on startup
+	if err := runTick(store, slackClient, p); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+
 	for range ticker.C {
-		if err := runTick(store, slackClient, s); err != nil {
+		if err := runTick(store, slackClient, p); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
@@ -57,20 +68,14 @@ func runWorker() error {
 	return nil
 }
 
-func runTick(store datastore.Storer, slackClient slack.Client, s sourcer.Sourcer) error {
+func runTick(store datastore.Storer, slackClient slack.Client, p *poller.Poller) error {
 	urls := viper.GetStringSlice("source.urls")
-	var allCalls []*model.Call
-
-	for _, url := range urls {
-		calls, err := s.Source(url)
-		if err != nil {
-			fmt.Printf("Error sourcing from %s: %v\n", url, err)
-			continue
-		}
-		allCalls = append(allCalls, calls...)
+	calls, err := p.Poll(urls)
+	if err != nil {
+		return err
 	}
 
-	for _, call := range allCalls {
+	for _, call := range calls {
 		if err := processCall(store, slackClient, call); err != nil {
 			fmt.Printf("Error processing call %s: %v\n", call.ID, err)
 		}
@@ -143,4 +148,5 @@ func processCall(store datastore.Storer, slackClient slack.Client, call *model.C
 
 func init() {
 	rootCmd.AddCommand(workerCmd)
+	viper.SetDefault("worker.interval", "1m")
 }

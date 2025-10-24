@@ -13,6 +13,7 @@ import (
 func TestCompositeFetcher(t *testing.T) {
 	// Test HTTP
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("ETag", "test-etag")
 		fmt.Fprintln(w, "Hello, client")
 	}))
 	defer server.Close()
@@ -20,9 +21,10 @@ func TestCompositeFetcher(t *testing.T) {
 	fetcher := NewCompositeFetcher()
 	fetcher.AddFetcher("http", NewHTTPFetcher())
 
-	data, err := fetcher.Fetch(server.URL)
+	data, state, err := fetcher.Fetch(server.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "Hello, client\n", string(data))
+	assert.Equal(t, "test-etag", state)
 
 	// Test File
 	tmpfile, err := os.CreateTemp("", "example")
@@ -35,11 +37,11 @@ func TestCompositeFetcher(t *testing.T) {
 
 	fetcher.AddFetcher("file", NewFileFetcher())
 	fileURL := "file://" + tmpfile.Name()
-	data, err = fetcher.Fetch(fileURL)
+	data, _, err = fetcher.Fetch(fileURL)
 	assert.NoError(t, err)
 	assert.Equal(t, "Hello, file", string(data))
 
 	// Test Unsupported Scheme
-	_, err = fetcher.Fetch("ftp://example.com")
+	_, _, err = fetcher.Fetch("ftp://example.com")
 	assert.Error(t, err)
 }

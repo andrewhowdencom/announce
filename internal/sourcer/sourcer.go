@@ -1,6 +1,7 @@
 package sourcer
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 
 // Fetcher defines the interface for fetching content from a URL.
 type Fetcher interface {
-	Fetch(url string) ([]byte, error)
+	Fetch(url string) ([]byte, string, error)
 }
 
 // CompositeFetcher is a fetcher that can handle multiple schemes.
@@ -34,15 +35,15 @@ func (f *CompositeFetcher) AddFetcher(scheme string, fetcher Fetcher) {
 }
 
 // Fetch fetches the content of a URL and returns it as a byte slice.
-func (f *CompositeFetcher) Fetch(rawURL string) ([]byte, error) {
+func (f *CompositeFetcher) Fetch(rawURL string) ([]byte, string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse url %s: %w", rawURL, err)
+		return nil, "", fmt.Errorf("failed to parse url %s: %w", rawURL, err)
 	}
 
 	fetcher, ok := f.fetchers[u.Scheme]
 	if !ok {
-		return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+		return nil, "", fmt.Errorf("unsupported scheme: %s", u.Scheme)
 	}
 
 	return fetcher.Fetch(rawURL)
@@ -61,18 +62,33 @@ func NewHTTPFetcher() *HTTPFetcher {
 }
 
 // Fetch fetches the content of a URL and returns it as a byte slice.
-func (f *HTTPFetcher) Fetch(url string) ([]byte, error) {
+func (f *HTTPFetcher) Fetch(url string) ([]byte, string, error) {
 	resp, err := f.client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch url %s: %w", url, err)
+		return nil, "", fmt.Errorf("failed to fetch url %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch url %s: status code %d", url, resp.StatusCode)
+		return nil, "", fmt.Errorf("failed to fetch url %s: status code %d", url, resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Prefer ETag, but fall back to Last-Modified.
+	var state string
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		state = etag
+	} else if lastModified := resp.Header.Get("Last-Modified"); lastModified != "" {
+		state = lastModified
+	} else {
+		state = fmt.Sprintf("%x", sha256.Sum256(body))
+	}
+
+	return body, state, nil
 }
 
 // FileFetcher is an implementation of Fetcher that fetches content from a local file.
@@ -84,13 +100,18 @@ func NewFileFetcher() *FileFetcher {
 }
 
 // Fetch fetches the content of a URL and returns it as a byte slice.
-func (f *FileFetcher) Fetch(rawURL string) ([]byte, error) {
+func (f *FileFetcher) Fetch(rawURL string) ([]byte, string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse url %s: %w", rawURL, err)
+		return nil, "", fmt.Errorf("failed to parse url %s: %w", rawURL, err)
 	}
 
-	return os.ReadFile(u.Path)
+	data, err := os.ReadFile(u.Path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return data, fmt.Sprintf("%x", sha256.Sum256(data)), nil
 }
 
 // Parser defines the interface for parsing content into a list of calls.
@@ -117,7 +138,7 @@ func (p *YAMLParser) Parse(data []byte) ([]*model.Call, error) {
 
 // Sourcer is an interface that defines the methods for sourcing calls.
 type Sourcer interface {
-	Source(url string) ([]*model.Call, error)
+	Source(url string) ([]*model.Call, string, error)
 }
 
 // sourcer is the concrete implementation of the Sourcer interface.
@@ -135,10 +156,16 @@ func NewSourcer(fetcher Fetcher, parser Parser) Sourcer {
 }
 
 // Source fetches and parses calls from a URL.
-func (s *sourcer) Source(url string) ([]*model.Call, error) {
-	data, err := s.fetcher.Fetch(url)
+func (s *sourcer) Source(url string) ([]*model.Call, string, error) {
+	data, state, err := s.fetcher.Fetch(url)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return s.parser.Parse(data)
+
+	calls, err := s.parser.Parse(data)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return calls, state, nil
 }
