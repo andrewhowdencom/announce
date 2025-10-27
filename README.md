@@ -42,17 +42,22 @@ The application expects the source YAML files to contain a list of calls with th
 
 ```yaml
 - id: "unique-id-1"
+  subject: "Hello!"
   content: "Hello, world!"
   destinations:
     - type: "slack"
-      to: "C1234567890"
+      to:
+        - "C1234567890"
   scheduled_at: "2025-01-01T12:00:00Z"
 - id: "unique-id-2"
+  subject: "Recurring hello!"
   content: "Hello, recurring world!"
   destinations:
     - type: "slack"
-      to: "C1234567890"
+      to:
+        - "C1234567890"
   cron: "0 * * * *"
+  recurring: true
 ```
 
 ## Getting it
