@@ -101,7 +101,8 @@ func (s *Store) AddSentMessage(sm *SentMessage) error {
 	})
 }
 
-// HasBeenSent checks if a message with the given sourceID and scheduledAt time has been sent.
+// HasBeenSent checks if a message with the given sourceID and scheduledAt time has a 'sent' or 'deleted' status.
+// It returns false for messages that have a 'failed' status, or do not exist.
 func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error) {
 	var sent bool
 	err := s.db.View(func(tx *bbolt.Tx) error {
@@ -113,7 +114,7 @@ func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time, destType, de
 			if err := json.Unmarshal(v, &sm); err != nil {
 				return fmt.Errorf("failed to unmarshal sent message: %w", err)
 			}
-			if sm.Status != StatusDeleted {
+			if sm.Status == StatusSent || sm.Status == StatusDeleted {
 				sent = true
 			}
 		}

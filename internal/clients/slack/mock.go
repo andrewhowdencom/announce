@@ -5,6 +5,8 @@ type MockClient struct {
 	PostMessageFunc   func(channel, subject, text string) (string, error)
 	DeleteMessageFunc func(channel, timestamp string) error
 	GetChannelIDFunc  func(channelName string) (string, error)
+
+	PostMessageCount int
 }
 
 // NewMockClient creates a new MockClient.
@@ -24,6 +26,7 @@ func NewMockClient() *MockClient {
 
 // PostMessage calls the PostMessageFunc.
 func (m *MockClient) PostMessage(channel, subject, text string) (string, error) {
+	m.PostMessageCount++
 	return m.PostMessageFunc(channel, subject, text)
 }
 
