@@ -109,3 +109,54 @@ func TestRunTickWithOldCall(t *testing.T) {
 	assert.Equal(t, "1", sentMessages[0].SourceID)
 	assert.Equal(t, datastore.StatusFailed, sentMessages[0].Status)
 }
+
+func TestRunTickWithDeletedCall(t *testing.T) {
+	// Mock datastore
+	store := datastore.NewMockStore()
+
+	// Mock Slack client
+	slackClient := slack.NewMockClient()
+
+	// Mock Email client
+	emailClient := email.NewMockClient()
+
+	scheduledAt := time.Now().Add(-1 * time.Minute).UTC()
+
+	// Add a deleted message to the store
+	err := store.AddSentMessage(&datastore.SentMessage{
+		SourceID:    "1",
+		ScheduledAt: scheduledAt,
+		Status:      datastore.StatusDeleted,
+		Type:        "slack",
+		Destination: "test-channel",
+	})
+	assert.NoError(t, err)
+
+	// Mock sourcer
+	s := &mockSourcer{
+		calls: []*model.Call{
+			{
+				ID:      "1",
+				Subject: "Test Subject",
+				Content: "Hello, world!",
+				Destinations: []model.Destination{
+					{
+						Type: "slack",
+						To:   []string{"test-channel"},
+					},
+				},
+				ScheduledAt: scheduledAt,
+			},
+		},
+	}
+
+	p := poller.New(s, 1*time.Minute)
+
+	viper.Set("source.urls", []string{"mock://url"})
+
+	err = runTick(store, slackClient, emailClient, p)
+	assert.NoError(t, err)
+
+	// Check that the slack client was not called
+	assert.Equal(t, 0, slackClient.PostMessageCount)
+}

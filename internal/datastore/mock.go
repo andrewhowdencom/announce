@@ -35,7 +35,7 @@ func (s *MockStore) HasBeenSent(sourceID string, scheduledAt time.Time, destType
 	defer s.mu.Unlock()
 	id := s.generateID(sourceID, scheduledAt, destType, destination)
 	sm, ok := s.sentMessages[id]
-	return ok && sm.Status != StatusDeleted, nil
+	return ok && (sm.Status == StatusSent || sm.Status == StatusDeleted), nil
 }
 
 func (s *MockStore) generateID(sourceID string, scheduledAt time.Time, destType, destination string) string {

@@ -60,5 +60,5 @@ func TestStore(t *testing.T) {
 
 	hasBeenSent, err = store.HasBeenSent(sm1.SourceID, sm1.ScheduledAt, sm1.Type, sm1.Destination)
 	assert.NoError(t, err)
-	assert.False(t, hasBeenSent)
+	assert.True(t, hasBeenSent)
 }
