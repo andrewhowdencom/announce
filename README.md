@@ -45,13 +45,13 @@ The application expects the source YAML files to contain a list of calls with th
   content: "Hello, world!"
   destinations:
     - type: "slack"
-      channel_id: "C1234567890"
+      to: "C1234567890"
   scheduled_at: "2025-01-01T12:00:00Z"
 - id: "unique-id-2"
   content: "Hello, recurring world!"
   destinations:
     - type: "slack"
-      channel_id: "C1234567890"
+      to: "C1234567890"
   cron: "0 * * * *"
 ```
 

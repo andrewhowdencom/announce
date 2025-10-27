@@ -143,6 +143,11 @@ func processCall(store datastore.Storer, slackClient slack.Client, emailClient e
 	}
 
 	for _, dest := range call.Destinations {
+		if len(dest.To) == 0 {
+			slog.Warn("skipping call with no address in `to`", "call_id", call.ID)
+			continue
+		}
+
 		for _, to := range dest.To {
 			hasBeenSent, err := store.HasBeenSent(call.ID, effectiveScheduledAt, dest.Type, to)
 			if err != nil {
