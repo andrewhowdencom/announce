@@ -60,6 +60,10 @@ func (c *client) DeleteMessage(channel, timestamp string) error {
 
 // GetChannelID retrieves the ID of a channel given its name.
 func (c *client) GetChannelID(channelName string) (string, error) {
+	if !strings.HasPrefix(channelName, "#") {
+		return channelName, nil
+	}
+
 	// TODO: Implement pagination if there are more than 1000 channels.
 	channels, _, err := c.api.GetConversations(&slack.GetConversationsParameters{
 		Limit: 1000,
