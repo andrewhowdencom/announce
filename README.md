@@ -36,6 +36,14 @@ slack:
     token: ""
 ```
 
+### Slack Configuration
+
+To use the Slack integration, you'll need to create a Slack app and install it in your workspace. The app will need the following permissions:
+
+- `channels:read`: To list public channels.
+- `groups:read`: To list private channels.
+- `chat:write`: To send messages.
+
 ## Call Format
 
 The application expects the source YAML files to contain a list of calls with the following format:
