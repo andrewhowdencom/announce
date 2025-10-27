@@ -1,4 +1,4 @@
-package cmd
+package worker_test
 
 import (
 	"testing"
@@ -9,20 +9,25 @@ import (
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/poller"
+	"github.com/andrewhowdencom/ruf/internal/worker"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
+// mockSourcer implements the sourcer.Sourcer interface for testing.
 type mockSourcer struct {
-	calls []*model.Call
-	err   error
+	callsBySource map[string][]*model.Call
+	err           error
 }
 
 func (m *mockSourcer) Source(url string) ([]*model.Call, string, error) {
-	return m.calls, "state", m.err
+	if m.err != nil {
+		return nil, "", m.err
+	}
+	return m.callsBySource[url], "state", nil
 }
 
-func TestRunTick(t *testing.T) {
+func TestWorker_RunTick(t *testing.T) {
 	// Mock datastore
 	store := datastore.NewMockStore()
 
@@ -34,31 +39,34 @@ func TestRunTick(t *testing.T) {
 
 	// Mock sourcer
 	s := &mockSourcer{
-		calls: []*model.Call{
-			{
-				ID:      "1",
-				Subject: "Test Subject",
-				Content: "Hello, world!",
-				Destinations: []model.Destination{
-					{
-						Type: "slack",
-						To:   []string{"test-channel"},
+		callsBySource: map[string][]*model.Call{
+			"mock://url": {
+				{
+					ID:      "1",
+					Subject: "Test Subject",
+					Content: "Hello, world!",
+					Destinations: []model.Destination{
+						{
+							Type: "slack",
+							To:   []string{"test-channel"},
+						},
+						{
+							Type: "email",
+							To:   []string{"test@example.com"},
+						},
 					},
-					{
-						Type: "email",
-						To:   []string{"test@example.com"},
-					},
+					ScheduledAt: time.Now().Add(-1 * time.Minute),
 				},
-				ScheduledAt: time.Now().Add(-1 * time.Minute),
 			},
 		},
 	}
 
 	p := poller.New(s, 1*time.Minute)
-
 	viper.Set("source.urls", []string{"mock://url"})
 
-	err := runTick(store, slackClient, emailClient, p)
+	w := worker.New(store, slackClient, emailClient, p, 1*time.Minute)
+
+	err := w.RunTick()
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()
@@ -68,7 +76,7 @@ func TestRunTick(t *testing.T) {
 	assert.Equal(t, "1", sentMessages[1].SourceID)
 }
 
-func TestRunTickWithOldCall(t *testing.T) {
+func TestWorker_RunTickWithOldCall(t *testing.T) {
 	// Mock datastore
 	store := datastore.NewMockStore()
 
@@ -80,17 +88,19 @@ func TestRunTickWithOldCall(t *testing.T) {
 
 	// Mock sourcer
 	s := &mockSourcer{
-		calls: []*model.Call{
-			{
-				ID:      "1",
-				Content: "Hello, world!",
-				Destinations: []model.Destination{
-					{
-						Type: "slack",
-						To:   []string{"test-channel"},
+		callsBySource: map[string][]*model.Call{
+			"mock://url": {
+				{
+					ID:      "1",
+					Content: "Hello, world!",
+					Destinations: []model.Destination{
+						{
+							Type: "slack",
+							To:   []string{"test-channel"},
+						},
 					},
+					ScheduledAt: time.Now().Add(-48 * time.Hour),
 				},
-				ScheduledAt: time.Now().Add(-48 * time.Hour),
 			},
 		},
 	}
@@ -100,7 +110,9 @@ func TestRunTickWithOldCall(t *testing.T) {
 	viper.Set("source.urls", []string{"mock://url"})
 	viper.Set("worker.lookback_period", "24h")
 
-	err := runTick(store, slackClient, emailClient, p)
+	w := worker.New(store, slackClient, emailClient, p, 1*time.Minute)
+
+	err := w.RunTick()
 	assert.NoError(t, err)
 
 	sentMessages, err := store.ListSentMessages()
@@ -110,7 +122,7 @@ func TestRunTickWithOldCall(t *testing.T) {
 	assert.Equal(t, datastore.StatusFailed, sentMessages[0].Status)
 }
 
-func TestRunTickWithDeletedCall(t *testing.T) {
+func TestWorker_RunTickWithDeletedCall(t *testing.T) {
 	// Mock datastore
 	store := datastore.NewMockStore()
 
@@ -134,18 +146,20 @@ func TestRunTickWithDeletedCall(t *testing.T) {
 
 	// Mock sourcer
 	s := &mockSourcer{
-		calls: []*model.Call{
-			{
-				ID:      "1",
-				Subject: "Test Subject",
-				Content: "Hello, world!",
-				Destinations: []model.Destination{
-					{
-						Type: "slack",
-						To:   []string{"test-channel"},
+		callsBySource: map[string][]*model.Call{
+			"mock://url": {
+				{
+					ID:      "1",
+					Subject: "Test Subject",
+					Content: "Hello, world!",
+					Destinations: []model.Destination{
+						{
+							Type: "slack",
+							To:   []string{"test-channel"},
+						},
 					},
+					ScheduledAt: scheduledAt,
 				},
-				ScheduledAt: scheduledAt,
 			},
 		},
 	}
@@ -154,7 +168,9 @@ func TestRunTickWithDeletedCall(t *testing.T) {
 
 	viper.Set("source.urls", []string{"mock://url"})
 
-	err = runTick(store, slackClient, emailClient, p)
+	w := worker.New(store, slackClient, emailClient, p, 1*time.Minute)
+
+	err = w.RunTick()
 	assert.NoError(t, err)
 
 	// Check that the slack client was not called
