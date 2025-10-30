@@ -102,12 +102,13 @@ func (w *Worker) processCall(call *model.Call) error {
 		slog.Warn("skipping call outside lookback period", "call_id", call.ID, "scheduled_at", effectiveScheduledAt)
 		for _, dest := range call.Destinations {
 			for _, to := range dest.To {
-				err := w.store.AddSentMessage(&datastore.SentMessage{
-					SourceID:    call.ID,
-					ScheduledAt: effectiveScheduledAt,
-					Status:      datastore.StatusFailed,
-					Type:        dest.Type,
-					Destination: to,
+				err := w.store.AddSentMessage(call.Campaign.ID, call.ID, &datastore.SentMessage{
+					SourceID:     call.ID,
+					ScheduledAt:  effectiveScheduledAt,
+					Status:       datastore.StatusFailed,
+					Type:         dest.Type,
+					Destination:  to,
+					CampaignName: call.Campaign.Name,
 				})
 				if err != nil {
 					return fmt.Errorf("failed to add sent message: %w", err)
@@ -124,7 +125,7 @@ func (w *Worker) processCall(call *model.Call) error {
 		}
 
 		for _, to := range dest.To {
-			hasBeenSent, err := w.store.HasBeenSent(call.ID, effectiveScheduledAt, dest.Type, to)
+			hasBeenSent, err := w.store.HasBeenSent(call.Campaign.ID, call.ID, dest.Type, to)
 			if err != nil {
 				return fmt.Errorf("failed to check if call has been sent: %w", err)
 			}
@@ -138,11 +139,12 @@ func (w *Worker) processCall(call *model.Call) error {
 				slog.Info("sending slack message", "call_id", call.ID, "channel", to, "scheduled_at", effectiveScheduledAt)
 				timestamp, err := w.slackClient.PostMessage(to, call.Author, call.Subject, call.Content)
 				sentMessage := &datastore.SentMessage{
-					SourceID:    call.ID,
-					ScheduledAt: effectiveScheduledAt,
-					Timestamp:   timestamp,
-					Destination: to,
-					Type:        dest.Type,
+					SourceID:     call.ID,
+					ScheduledAt:  effectiveScheduledAt,
+					Timestamp:    timestamp,
+					Destination:  to,
+					Type:         dest.Type,
+					CampaignName: call.Campaign.Name,
 				}
 
 				if err != nil {
@@ -153,17 +155,18 @@ func (w *Worker) processCall(call *model.Call) error {
 					slog.Info("sent slack message", "call_id", call.ID, "channel", to, "scheduled_at", effectiveScheduledAt)
 				}
 
-				if err := w.store.AddSentMessage(sentMessage); err != nil {
+				if err := w.store.AddSentMessage(call.Campaign.ID, call.ID, sentMessage); err != nil {
 					return err
 				}
 			case "email":
 				slog.Info("sending email", "call_id", call.ID, "recipient", to, "scheduled_at", effectiveScheduledAt)
 				err := w.emailClient.Send([]string{to}, call.Author, call.Subject, call.Content)
 				sentMessage := &datastore.SentMessage{
-					SourceID:    call.ID,
-					ScheduledAt: effectiveScheduledAt,
-					Destination: to,
-					Type:        dest.Type,
+					SourceID:     call.ID,
+					ScheduledAt:  effectiveScheduledAt,
+					Destination:  to,
+					Type:         dest.Type,
+					CampaignName: call.Campaign.Name,
 				}
 
 				if err != nil {
@@ -174,7 +177,7 @@ func (w *Worker) processCall(call *model.Call) error {
 					slog.Info("sent email", "call_id", call.ID, "recipient", to, "scheduled_at", effectiveScheduledAt)
 				}
 
-				if err := w.store.AddSentMessage(sentMessage); err != nil {
+				if err := w.store.AddSentMessage(call.Campaign.ID, call.ID, sentMessage); err != nil {
 					return err
 				}
 			default:

@@ -45,3 +45,35 @@ func TestCompositeFetcher(t *testing.T) {
 	_, _, err = fetcher.Fetch("ftp://example.com")
 	assert.Error(t, err)
 }
+
+func TestYAMLParser(t *testing.T) {
+	// Test with campaign
+	yamlWithCampaign := `
+campaign:
+  id: "test-campaign"
+  name: "Test Campaign"
+calls:
+  - id: "test-call"
+    subject: "Test Subject"
+    content: "Test Content"
+`
+	parser := NewYAMLParser()
+	calls, err := parser.Parse("file:///test.yaml", []byte(yamlWithCampaign))
+	assert.NoError(t, err)
+	assert.Len(t, calls, 1)
+	assert.Equal(t, "test-campaign", calls[0].Campaign.ID)
+	assert.Equal(t, "Test Campaign", calls[0].Campaign.Name)
+
+	// Test without campaign
+	yamlWithoutCampaign := `
+calls:
+  - id: "test-call"
+    subject: "Test Subject"
+    content: "Test Content"
+`
+	calls, err = parser.Parse("file:///test.yaml", []byte(yamlWithoutCampaign))
+	assert.NoError(t, err)
+	assert.Len(t, calls, 1)
+	assert.Equal(t, "test", calls[0].Campaign.ID)
+	assert.Equal(t, "/test.yaml", calls[0].Campaign.Name)
+}

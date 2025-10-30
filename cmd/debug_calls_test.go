@@ -19,16 +19,17 @@ func TestDebugCallsCmd(t *testing.T) {
 
 	// Create a valid YAML file with some calls.
 	validYAML := `
-- id: call-1
-  destinations:
-    - type: slack
-      to: ["#general"]
-  content: "Hello, world!"
-- id: call-2
-  destinations:
-    - type: slack
-      to: ["#random"]
-  content: "This is a test."
+calls:
+  - id: call-1
+    destinations:
+      - type: slack
+        to: ["#general"]
+    content: "Hello, world!"
+  - id: call-2
+    destinations:
+      - type: slack
+        to: ["#random"]
+    content: "This is a test."
 `
 	validFile := filepath.Join(tmpDir, "valid.yaml")
 	err = ioutil.WriteFile(validFile, []byte(validYAML), 0644)
@@ -53,30 +54,38 @@ func TestDebugCallsCmd(t *testing.T) {
 
 	// Assert that stdout contains the correct JSON output for the valid calls.
 	expectedJSON := `[
-  {
-    "id": "call-1",
-    "scheduled_at": "0001-01-01T00:00:00Z",
-    "destinations": [
-      {
-        "type": "slack",
-        "to": ["#general"]
-      }
-    ],
-    "content": "Hello, world!"
-  },
-  {
-    "id": "call-2",
-    "scheduled_at": "0001-01-01T00:00:00Z",
-    "destinations": [
-      {
-        "type": "slack",
-        "to": ["#random"]
-      }
-    ],
-    "content": "This is a test."
-  }
-]
-`
+		{
+			"id": "call-1",
+			"scheduled_at": "0001-01-01T00:00:00Z",
+			"destinations": [
+				{
+					"type": "slack",
+					"to": ["#general"]
+				}
+			],
+			"content": "Hello, world!",
+			"campaign": {
+				"id": "valid",
+				"name": "` + validFile + `"
+			}
+		},
+		{
+			"id": "call-2",
+			"scheduled_at": "0001-01-01T00:00:00Z",
+			"destinations": [
+				{
+					"type": "slack",
+					"to": ["#random"]
+				}
+			],
+			"content": "This is a test.",
+			"campaign": {
+				"id": "valid",
+				"name": "` + validFile + `"
+			}
+		}
+	]
+	`
 	assert.JSONEq(t, expectedJSON, stdout.String())
 
 	// Assert that stderr contains an error message for the non-existent file.

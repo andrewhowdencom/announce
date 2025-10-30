@@ -18,4 +18,18 @@ type Call struct {
 	ScheduledAt  time.Time     `json:"scheduled_at" yaml:"scheduled_at"`
 	Cron         string        `json:"cron,omitempty" yaml:"cron,omitempty"`
 	Recurring    bool          `json:"recurring,omitempty" yaml:"recurring,omitempty"`
+
+	Campaign Campaign `json:"campaign" yaml:"campaign"`
+}
+
+// Campaign represents a campaign.
+type Campaign struct {
+	ID   string `json:"id" yaml:"id"`
+	Name string `json:"name" yaml:"name"`
+}
+
+// Source represents a source file.
+type Source struct {
+	Campaign Campaign `json:"campaign" yaml:"campaign"`
+	Calls    []Call   `json:"calls" yaml:"calls"`
 }

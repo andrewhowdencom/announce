@@ -67,6 +67,10 @@ func TestWorker_RunTick(t *testing.T) {
 						},
 					},
 					ScheduledAt: time.Now().Add(-1 * time.Minute),
+					Campaign: model.Campaign{
+						ID:   "mock-campaign",
+						Name: "Mock Campaign",
+					},
 				},
 			},
 		},
@@ -115,6 +119,10 @@ func TestWorker_RunTickWithOldCall(t *testing.T) {
 						},
 					},
 					ScheduledAt: time.Now().Add(-48 * time.Hour),
+					Campaign: model.Campaign{
+						ID:   "mock-campaign",
+						Name: "Mock Campaign",
+					},
 				},
 			},
 		},
@@ -135,6 +143,7 @@ func TestWorker_RunTickWithOldCall(t *testing.T) {
 	assert.Len(t, sentMessages, 1)
 	assert.Equal(t, "1", sentMessages[0].SourceID)
 	assert.Equal(t, datastore.StatusFailed, sentMessages[0].Status)
+	assert.Equal(t, "Mock Campaign", sentMessages[0].CampaignName)
 }
 
 func TestWorker_RunTickWithDeletedCall(t *testing.T) {
@@ -150,7 +159,7 @@ func TestWorker_RunTickWithDeletedCall(t *testing.T) {
 	scheduledAt := time.Now().Add(-1 * time.Minute).UTC()
 
 	// Add a deleted message to the store
-	err := store.AddSentMessage(&datastore.SentMessage{
+	err := store.AddSentMessage("mock-campaign", "1", &datastore.SentMessage{
 		SourceID:    "1",
 		ScheduledAt: scheduledAt,
 		Status:      datastore.StatusDeleted,
@@ -174,6 +183,10 @@ func TestWorker_RunTickWithDeletedCall(t *testing.T) {
 						},
 					},
 					ScheduledAt: scheduledAt,
+					Campaign: model.Campaign{
+						ID:   "mock-campaign",
+						Name: "Mock Campaign",
+					},
 				},
 			},
 		},
