@@ -33,9 +33,19 @@ func TestWorker_RunTick(t *testing.T) {
 
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
+	var capturedSlackAuthor string
+	slackClient.PostMessageFunc = func(channel, author, subject, text string) (string, error) {
+		capturedSlackAuthor = author
+		return "", nil
+	}
 
 	// Mock Email client
 	emailClient := email.NewMockClient()
+	var capturedEmailAuthor string
+	emailClient.SendFunc = func(to []string, author, subject, body string) error {
+		capturedEmailAuthor = author
+		return nil
+	}
 
 	// Mock sourcer
 	s := &mockSourcer{
@@ -43,6 +53,7 @@ func TestWorker_RunTick(t *testing.T) {
 			"mock://url": {
 				{
 					ID:      "1",
+					Author:  "test@author.com",
 					Subject: "Test Subject",
 					Content: "Hello, world!",
 					Destinations: []model.Destination{
@@ -63,6 +74,7 @@ func TestWorker_RunTick(t *testing.T) {
 
 	p := poller.New(s, 1*time.Minute)
 	viper.Set("source.urls", []string{"mock://url"})
+	viper.Set("worker.lookback_period", "10m")
 
 	w := worker.New(store, slackClient, emailClient, p, 1*time.Minute)
 
@@ -74,6 +86,9 @@ func TestWorker_RunTick(t *testing.T) {
 	assert.Len(t, sentMessages, 2)
 	assert.Equal(t, "1", sentMessages[0].SourceID)
 	assert.Equal(t, "1", sentMessages[1].SourceID)
+
+	assert.Equal(t, "test@author.com", capturedSlackAuthor)
+	assert.Equal(t, "test@author.com", capturedEmailAuthor)
 }
 
 func TestWorker_RunTickWithOldCall(t *testing.T) {
