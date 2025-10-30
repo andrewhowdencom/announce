@@ -7,7 +7,7 @@ import (
 
 // Client is an interface for sending emails.
 type Client interface {
-	Send(to []string, subject, body string) error
+	Send(to []string, author, subject, body string) error
 }
 
 // SMTPClient is a client for sending emails using SMTP.
@@ -30,17 +30,28 @@ func NewClient(host string, port int, username, password, from string) Client {
 }
 
 // Send sends an email to the specified recipients.
-func (c *SMTPClient) Send(to []string, subject, body string) error {
+func (c *SMTPClient) Send(to []string, author, subject, body string) error {
 	var errs []error
 	for _, recipient := range to {
-		msg := []byte(
-			"To: " + recipient + "\r\n" +
-				"Subject: " + subject + "\r\n" +
-				"\r\n" +
-				body + "\r\n",
-		)
+		headers := map[string]string{
+			"To":      recipient,
+			"Subject": subject,
+		}
 
-		err := smtp.SendMail(c.addr, c.auth, c.from, []string{recipient}, msg)
+		from := c.from
+		if author != "" {
+			from = author
+			headers["Reply-To"] = author
+		}
+		headers["From"] = from
+
+		msg := ""
+		for k, v := range headers {
+			msg += fmt.Sprintf("%s: %s\r\n", k, v)
+		}
+		msg += "\r\n" + body
+
+		err := smtp.SendMail(c.addr, c.auth, c.from, []string{recipient}, []byte(msg))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to send email to %s: %w", recipient, err))
 		}
@@ -55,7 +66,7 @@ func (c *SMTPClient) Send(to []string, subject, body string) error {
 
 // MockClient is a mock implementation of the Client interface.
 type MockClient struct {
-	SendFunc func(to []string, subject, body string) error
+	SendFunc func(to []string, author, subject, body string) error
 }
 
 // NewMockClient returns a new mock client.
@@ -64,9 +75,9 @@ func NewMockClient() *MockClient {
 }
 
 // Send is the mock implementation of the Send method.
-func (m *MockClient) Send(to []string, subject, body string) error {
+func (m *MockClient) Send(to []string, author, subject, body string) error {
 	if m.SendFunc != nil {
-		return m.SendFunc(to, subject, body)
+		return m.SendFunc(to, author, subject, body)
 	}
 	return nil
 }

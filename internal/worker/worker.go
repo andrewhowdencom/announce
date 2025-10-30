@@ -137,7 +137,7 @@ func (w *Worker) processCall(call *model.Call) error {
 			switch dest.Type {
 			case "slack":
 				slog.Info("sending slack message", "call_id", call.ID, "channel", to, "scheduled_at", effectiveScheduledAt)
-				timestamp, err := w.slackClient.PostMessage(to, call.Subject, call.Content)
+				timestamp, err := w.slackClient.PostMessage(to, call.Author, call.Subject, call.Content)
 				sentMessage := &datastore.SentMessage{
 					SourceID:     call.ID,
 					ScheduledAt:  effectiveScheduledAt,
@@ -160,7 +160,7 @@ func (w *Worker) processCall(call *model.Call) error {
 				}
 			case "email":
 				slog.Info("sending email", "call_id", call.ID, "recipient", to, "scheduled_at", effectiveScheduledAt)
-				err := w.emailClient.Send([]string{to}, call.Subject, call.Content)
+				err := w.emailClient.Send([]string{to}, call.Author, call.Subject, call.Content)
 				sentMessage := &datastore.SentMessage{
 					SourceID:     call.ID,
 					ScheduledAt:  effectiveScheduledAt,

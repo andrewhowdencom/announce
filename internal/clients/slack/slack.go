@@ -9,7 +9,7 @@ import (
 
 // Client is an interface that defines the methods for interacting with the Slack API.
 type Client interface {
-	PostMessage(channel, subject, text string) (string, error)
+	PostMessage(channel, author, subject, text string) (string, error)
 	DeleteMessage(channel, timestamp string) error
 	GetChannelID(channelName string) (string, error)
 }
@@ -27,10 +27,20 @@ func NewClient(token string) Client {
 }
 
 // PostMessage sends a message to a Slack channel.
-func (c *client) PostMessage(channel, subject, text string) (string, error) {
+func (c *client) PostMessage(channel, author, subject, text string) (string, error) {
 	message := text
 	if subject != "" {
 		message = fmt.Sprintf("*%s*\n%s", subject, text)
+	}
+
+	if author != "" {
+		user, err := c.api.GetUserByEmail(author)
+		if err != nil {
+			// If the user is not found, fall back to the email address.
+			message = fmt.Sprintf("%s\n\n---\nAuthor: %s", message, author)
+		} else {
+			message = fmt.Sprintf("%s\n\n---\nAuthor: @%s", message, user.Name)
+		}
 	}
 
 	channelID, err := c.GetChannelID(channel)

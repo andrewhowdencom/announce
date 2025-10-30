@@ -11,6 +11,7 @@ type Destination struct {
 // Call represents a message to be sent to a destination.
 type Call struct {
 	ID           string        `json:"id" yaml:"id"`
+	Author       string        `json:"author,omitempty" yaml:"author,omitempty"`
 	Subject      string        `json:"subject,omitempty" yaml:"subject,omitempty"`
 	Content      string        `json:"content" yaml:"content"`
 	Destinations []Destination `json:"destinations" yaml:"destinations"`

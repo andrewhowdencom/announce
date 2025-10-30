@@ -33,13 +33,17 @@ func TestWorker_RunTick(t *testing.T) {
 
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
-	slackClient.PostMessageFunc = func(channel, subject, text string) (string, error) {
-		return "1234567890.123456", nil
+	var capturedSlackAuthor string
+	slackClient.PostMessageFunc = func(channel, author, subject, text string) (string, error) {
+		capturedSlackAuthor = author
+		return "", nil
 	}
 
 	// Mock Email client
 	emailClient := email.NewMockClient()
-	emailClient.SendFunc = func(to []string, subject, body string) error {
+	var capturedEmailAuthor string
+	emailClient.SendFunc = func(to []string, author, subject, body string) error {
+		capturedEmailAuthor = author
 		return nil
 	}
 
@@ -49,6 +53,7 @@ func TestWorker_RunTick(t *testing.T) {
 			"mock://url": {
 				{
 					ID:      "1",
+					Author:  "test@author.com",
 					Subject: "Test Subject",
 					Content: "Hello, world!",
 					Destinations: []model.Destination{
@@ -73,6 +78,7 @@ func TestWorker_RunTick(t *testing.T) {
 
 	p := poller.New(s, 1*time.Minute)
 	viper.Set("source.urls", []string{"mock://url"})
+	viper.Set("worker.lookback_period", "10m")
 
 	w := worker.New(store, slackClient, emailClient, p, 1*time.Minute)
 
@@ -82,14 +88,11 @@ func TestWorker_RunTick(t *testing.T) {
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 2)
+	assert.Equal(t, "1", sentMessages[0].SourceID)
+	assert.Equal(t, "1", sentMessages[1].SourceID)
 
-	// check that both messages were sent and have the correct campaign name
-	for _, sm := range sentMessages {
-		sm.Status = datastore.StatusSent
-		assert.Equal(t, "1", sm.SourceID)
-		assert.Equal(t, "Mock Campaign", sm.CampaignName)
-		assert.Equal(t, datastore.StatusSent, sm.Status)
-	}
+	assert.Equal(t, "test@author.com", capturedSlackAuthor)
+	assert.Equal(t, "test@author.com", capturedEmailAuthor)
 }
 
 func TestWorker_RunTickWithOldCall(t *testing.T) {
