@@ -62,3 +62,35 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, hasBeenSent)
 }
+
+func TestListSentMessagesWithDeleted(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "test.db")
+	assert.NoError(t, err)
+	defer os.Remove(tmpfile.Name())
+
+	store, err := NewTestStore(tmpfile.Name())
+	assert.NoError(t, err)
+	defer store.Close()
+
+	// Test AddSentMessage
+	sm1 := &SentMessage{
+		SourceID:    "1",
+		ScheduledAt: time.Now(),
+		Timestamp:   "1234567890.123456",
+		Status:      StatusSent,
+		Type:        "slack",
+		Destination: "C1234567890",
+	}
+	err = store.AddSentMessage("campaign-1", "call-1", sm1)
+	assert.NoError(t, err)
+
+	// Test DeleteSentMessage
+	err = store.DeleteSentMessage(sm1.ID)
+	assert.NoError(t, err)
+
+	// Test ListSentMessages
+	sentMessages, err := store.ListSentMessages()
+	assert.NoError(t, err)
+	assert.Len(t, sentMessages, 1)
+	assert.Equal(t, StatusDeleted, sentMessages[0].Status)
+}

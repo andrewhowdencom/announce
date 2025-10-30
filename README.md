@@ -73,6 +73,15 @@ calls:
   recurring: true
 ```
 
+## Listing Sent Calls
+
+When you list the sent calls, you will see the following statuses:
+
+| Status | Description |
+| --- | --- |
+| `sent` | The call has been successfully sent. |
+| `deleted` | The call has been sent and then subsequently deleted. |
+
 ## Getting it
 
 You can download the latest version of the application from the [GitHub Releases page](https://github.com/andrewhowdencom/ruf/releases).
