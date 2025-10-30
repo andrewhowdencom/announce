@@ -50,6 +50,7 @@ The application expects the source YAML files to contain a list of calls with th
 
 ```yaml
 - id: "unique-id-1"
+  author: "author@example.com"
   subject: "Hello!"
   content: "Hello, world!"
   destinations:
