@@ -26,19 +26,20 @@ const (
 
 // SentMessage represents a message that has been sent.
 type SentMessage struct {
-	ID          string    `json:"id"`
-	SourceID    string    `json:"source_id"`
-	ScheduledAt time.Time `json:"scheduled_at"`
-	Timestamp   string    `json:"timestamp,omitempty"` // Slack timestamp
-	Destination string    `json:"destination"`
-	Type        string    `json:"type"`
-	Status      Status    `json:"status"`
+	ID           string    `json:"id"`
+	SourceID     string    `json:"source_id"`
+	ScheduledAt  time.Time `json:"scheduled_at"`
+	Timestamp    string    `json:"timestamp,omitempty"` // Slack timestamp
+	Destination  string    `json:"destination"`
+	Type         string    `json:"type"`
+	Status       Status    `json:"status"`
+	CampaignName string    `json:"campaign_name"`
 }
 
 // Storer is an interface that defines the methods for interacting with the datastore.
 type Storer interface {
-	AddSentMessage(sm *SentMessage) error
-	HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error)
+	AddSentMessage(campaignID, callID string, sm *SentMessage) error
+	HasBeenSent(campaignID, callID, destType, destination string) (bool, error)
 	ListSentMessages() ([]*SentMessage, error)
 	GetSentMessage(id string) (*SentMessage, error)
 	DeleteSentMessage(id string) error
@@ -88,10 +89,10 @@ func (s *Store) Close() error {
 }
 
 // AddSentMessage adds a new sent message to the store.
-func (s *Store) AddSentMessage(sm *SentMessage) error {
+func (s *Store) AddSentMessage(campaignID, callID string, sm *SentMessage) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
-		sm.ID = s.generateID(sm.SourceID, sm.ScheduledAt, sm.Type, sm.Destination)
+		sm.ID = s.generateID(campaignID, callID, sm.Type, sm.Destination)
 
 		buf, err := json.Marshal(sm)
 		if err != nil {
@@ -103,11 +104,11 @@ func (s *Store) AddSentMessage(sm *SentMessage) error {
 
 // HasBeenSent checks if a message with the given sourceID and scheduledAt time has a 'sent' or 'deleted' status.
 // It returns false for messages that have a 'failed' status, or do not exist.
-func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error) {
+func (s *Store) HasBeenSent(campaignID, callID, destType, destination string) (bool, error) {
 	var sent bool
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
-		id := s.generateID(sourceID, scheduledAt, destType, destination)
+		id := s.generateID(campaignID, callID, destType, destination)
 		v := b.Get([]byte(id))
 		if v != nil {
 			var sm SentMessage
@@ -126,10 +127,10 @@ func (s *Store) HasBeenSent(sourceID string, scheduledAt time.Time, destType, de
 	return sent, nil
 }
 
-func (s *Store) generateID(sourceID string, scheduledAt time.Time, destType, destination string) string {
+func (s *Store) generateID(campaignID, callID, destType, destination string) string {
 	parts := []string{
-		sourceID,
-		scheduledAt.Format(time.RFC3339Nano),
+		campaignID,
+		callID,
 		destType,
 		destination,
 	}

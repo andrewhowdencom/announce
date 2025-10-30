@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/andrewhowdencom/ruf/internal/model"
 	"gopkg.in/yaml.v3"
@@ -116,7 +117,7 @@ func (f *FileFetcher) Fetch(rawURL string) ([]byte, string, error) {
 
 // Parser defines the interface for parsing content into a list of calls.
 type Parser interface {
-	Parse(data []byte) ([]*model.Call, error)
+	Parse(url string, data []byte) ([]*model.Call, error)
 }
 
 // YAMLParser is an implementation of Parser that parses YAML content.
@@ -128,11 +129,41 @@ func NewYAMLParser() *YAMLParser {
 }
 
 // Parse parses a YAML byte slice and returns a list of calls.
-func (p *YAMLParser) Parse(data []byte) ([]*model.Call, error) {
-	var calls []*model.Call
-	if err := yaml.Unmarshal(data, &calls); err != nil {
+func (p *YAMLParser) Parse(rawURL string, data []byte) ([]*model.Call, error) {
+	var s model.Source
+	if err := yaml.Unmarshal(data, &s); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}
+
+	// If the campaign isn't specified, we'll derive it from the filename.
+	if s.Campaign.ID == "" {
+		u, err := url.Parse(rawURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse url %s: %w", rawURL, err)
+		}
+
+		// my-campaign.yaml -> my-campaign-yaml
+		base := u.Path[strings.LastIndex(u.Path, "/")+1:]
+		s.Campaign.ID = strings.ReplaceAll(
+			strings.TrimSuffix(base, ".yaml"),
+			".", "-",
+		)
+	}
+	if s.Campaign.Name == "" {
+		u, err := url.Parse(rawURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse url %s: %w", rawURL, err)
+		}
+		s.Campaign.Name = u.Path
+	}
+
+	// Add the campaign to each call.
+	calls := make([]*model.Call, 0, len(s.Calls))
+	for i := range s.Calls {
+		s.Calls[i].Campaign = s.Campaign
+		calls = append(calls, &s.Calls[i])
+	}
+
 	return calls, nil
 }
 
@@ -162,7 +193,7 @@ func (s *sourcer) Source(url string) ([]*model.Call, string, error) {
 		return nil, "", err
 	}
 
-	calls, err := s.parser.Parse(data)
+	calls, err := s.parser.Parse(url, data)
 	if err != nil {
 		return nil, "", err
 	}

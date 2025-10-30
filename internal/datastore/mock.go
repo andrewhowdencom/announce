@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 )
 
 // MockStore is a mock implementation of the Storer interface.
@@ -21,27 +20,32 @@ func NewMockStore() *MockStore {
 }
 
 // AddSentMessage adds a new sent message to the mock store.
-func (s *MockStore) AddSentMessage(sm *SentMessage) error {
+func (s *MockStore) AddSentMessage(campaignID, callID string, sm *SentMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	sm.ID = s.generateID(sm.SourceID, sm.ScheduledAt, sm.Type, sm.Destination)
+	sm.ID = s.generateID(campaignID, callID, sm.Type, sm.Destination)
 	s.sentMessages[sm.ID] = sm
+
+	// if the status is not set, default to sent
+	if sm.Status == "" {
+		sm.Status = StatusSent
+	}
 	return nil
 }
 
 // HasBeenSent checks if a message with the given sourceID and scheduledAt time has been sent.
-func (s *MockStore) HasBeenSent(sourceID string, scheduledAt time.Time, destType, destination string) (bool, error) {
+func (s *MockStore) HasBeenSent(campaignID, callID, destType, destination string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	id := s.generateID(sourceID, scheduledAt, destType, destination)
+	id := s.generateID(campaignID, callID, destType, destination)
 	sm, ok := s.sentMessages[id]
 	return ok && (sm.Status == StatusSent || sm.Status == StatusDeleted), nil
 }
 
-func (s *MockStore) generateID(sourceID string, scheduledAt time.Time, destType, destination string) string {
+func (s *MockStore) generateID(campaignID, callID, destType, destination string) string {
 	parts := []string{
-		sourceID,
-		scheduledAt.Format(time.RFC3339Nano),
+		campaignID,
+		callID,
 		destType,
 		destination,
 	}
