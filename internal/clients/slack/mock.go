@@ -2,7 +2,7 @@ package slack
 
 // MockClient is a mock implementation of the Client interface for testing.
 type MockClient struct {
-	PostMessageFunc   func(channel, subject, text string) (string, error)
+	PostMessageFunc   func(channel, author, subject, text string) (string, error)
 	DeleteMessageFunc func(channel, timestamp string) error
 	GetChannelIDFunc  func(channelName string) (string, error)
 
@@ -12,7 +12,7 @@ type MockClient struct {
 // NewMockClient creates a new MockClient.
 func NewMockClient() *MockClient {
 	return &MockClient{
-		PostMessageFunc: func(channel, subject, text string) (string, error) {
+		PostMessageFunc: func(channel, author, subject, text string) (string, error) {
 			return "1234567890.123456", nil
 		},
 		DeleteMessageFunc: func(channel, timestamp string) error {
@@ -25,9 +25,9 @@ func NewMockClient() *MockClient {
 }
 
 // PostMessage calls the PostMessageFunc.
-func (m *MockClient) PostMessage(channel, subject, text string) (string, error) {
+func (m *MockClient) PostMessage(channel, author, subject, text string) (string, error) {
 	m.PostMessageCount++
-	return m.PostMessageFunc(channel, subject, text)
+	return m.PostMessageFunc(channel, author, subject, text)
 }
 
 // DeleteMessage calls the DeleteMessageFunc.
