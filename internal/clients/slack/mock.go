@@ -2,18 +2,23 @@ package slack
 
 // MockClient is a mock implementation of the Client interface for testing.
 type MockClient struct {
-	PostMessageFunc   func(channel, author, subject, text string) (string, error)
+	PostMessageFunc   func(channel, author, subject, text string) (string, string, error)
+	NotifyAuthorFunc  func(authorEmail, channelId, messageTimestamp, channelName string) error
 	DeleteMessageFunc func(channel, timestamp string) error
 	GetChannelIDFunc  func(channelName string) (string, error)
 
-	PostMessageCount int
+	PostMessageCount  int
+	NotifyAuthorCount int
 }
 
 // NewMockClient creates a new MockClient.
 func NewMockClient() *MockClient {
 	return &MockClient{
-		PostMessageFunc: func(channel, author, subject, text string) (string, error) {
-			return "1234567890.123456", nil
+		PostMessageFunc: func(channel, author, subject, text string) (string, string, error) {
+			return "C1234567890", "1234567890.123456", nil
+		},
+		NotifyAuthorFunc: func(authorEmail, channelId, messageTimestamp, channelName string) error {
+			return nil
 		},
 		DeleteMessageFunc: func(channel, timestamp string) error {
 			return nil
@@ -25,9 +30,15 @@ func NewMockClient() *MockClient {
 }
 
 // PostMessage calls the PostMessageFunc.
-func (m *MockClient) PostMessage(channel, author, subject, text string) (string, error) {
+func (m *MockClient) PostMessage(channel, author, subject, text string) (string, string, error) {
 	m.PostMessageCount++
 	return m.PostMessageFunc(channel, author, subject, text)
+}
+
+// NotifyAuthor calls the NotifyAuthorFunc.
+func (m *MockClient) NotifyAuthor(authorEmail, channelId, messageTimestamp, channelName string) error {
+	m.NotifyAuthorCount++
+	return m.NotifyAuthorFunc(authorEmail, channelId, messageTimestamp, channelName)
 }
 
 // DeleteMessage calls the DeleteMessageFunc.

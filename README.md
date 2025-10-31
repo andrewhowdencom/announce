@@ -59,6 +59,8 @@ To use the Slack integration, you'll need to create a Slack app and install it i
 - `channels:read`: To list public channels.
 - `groups:read`: To list private channels.
 - `chat:write`: To send messages.
+- `im:write`: To send direct messages.
+- `users:read.email`: To look up users by email.
 
 ## Call Format
 
