@@ -1,7 +1,6 @@
 package sourcer
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
 	"testing"
 
