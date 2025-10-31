@@ -10,6 +10,7 @@ import (
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/poller"
+	"github.com/andrewhowdencom/ruf/internal/templater"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/viper"
 )
@@ -134,10 +135,38 @@ func (w *Worker) processCall(call *model.Call) error {
 				continue
 			}
 
+			// Render the subject and content
+			subject, err := templater.Render(call.Subject)
+			if err != nil {
+				slog.Error("failed to render subject", "error", err)
+				w.store.AddSentMessage(call.Campaign.ID, call.ID, &datastore.SentMessage{
+					SourceID:     call.ID,
+					ScheduledAt:  effectiveScheduledAt,
+					Status:       datastore.StatusFailed,
+					Type:         dest.Type,
+					Destination:  to,
+					CampaignName: call.Campaign.Name,
+				})
+				continue
+			}
+			content, err := templater.Render(call.Content)
+			if err != nil {
+				slog.Error("failed to render content", "error", err)
+				w.store.AddSentMessage(call.Campaign.ID, call.ID, &datastore.SentMessage{
+					SourceID:     call.ID,
+					ScheduledAt:  effectiveScheduledAt,
+					Status:       datastore.StatusFailed,
+					Type:         dest.Type,
+					Destination:  to,
+					CampaignName: call.Campaign.Name,
+				})
+				continue
+			}
+
 			switch dest.Type {
 			case "slack":
 				slog.Info("sending slack message", "call_id", call.ID, "channel", to, "scheduled_at", effectiveScheduledAt)
-				channelID, timestamp, err := w.slackClient.PostMessage(to, call.Author, call.Subject, call.Content)
+				channelID, timestamp, err := w.slackClient.PostMessage(to, call.Author, subject, content)
 				sentMessage := &datastore.SentMessage{
 					SourceID:     call.ID,
 					ScheduledAt:  effectiveScheduledAt,
@@ -167,7 +196,7 @@ func (w *Worker) processCall(call *model.Call) error {
 				}
 			case "email":
 				slog.Info("sending email", "call_id", call.ID, "recipient", to, "scheduled_at", effectiveScheduledAt)
-				err := w.emailClient.Send([]string{to}, call.Author, call.Subject, call.Content)
+				err := w.emailClient.Send([]string{to}, call.Author, subject, content)
 				sentMessage := &datastore.SentMessage{
 					SourceID:     call.ID,
 					ScheduledAt:  effectiveScheduledAt,
