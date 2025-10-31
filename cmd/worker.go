@@ -30,6 +30,7 @@ func buildSourcer() sourcer.Sourcer {
 	fetcher.AddFetcher("http", sourcer.NewHTTPFetcher())
 	fetcher.AddFetcher("https", sourcer.NewHTTPFetcher())
 	fetcher.AddFetcher("file", sourcer.NewFileFetcher())
+	fetcher.AddFetcher("git", sourcer.NewGitFetcher())
 	parser := sourcer.NewYAMLParser()
 	return sourcer.NewSourcer(fetcher, parser)
 }
