@@ -43,8 +43,6 @@ func (f *GitFetcher) Fetch(rawURL string) ([]byte, string, error) {
 
 	cloneURL := fmt.Sprintf("https://%s/%s/%s.git", u.Host, user, repo)
 
-	token := viper.GetString(fmt.Sprintf("git.tokens.%s", u.Host))
-
 	// Create a temporary directory
 	dir, err := ioutil.TempDir("", "ruf-git-sourcer")
 	if err != nil {
@@ -57,8 +55,14 @@ func (f *GitFetcher) Fetch(rawURL string) ([]byte, string, error) {
 		SingleBranch: true,
 		Depth:        1,
 	}
+
+	username := viper.GetString(fmt.Sprintf("git.auth.%s.username", u.Host))
+	token := viper.GetString(fmt.Sprintf("git.auth.%s.token", u.Host))
 	if token != "" {
-		cloneOptions.Auth = &http.BasicAuth{Username: token}
+		cloneOptions.Auth = &http.BasicAuth{
+			Username: username,
+			Password: token,
+		}
 	}
 
 	// Determine if the ref is a branch, tag, or commit hash
