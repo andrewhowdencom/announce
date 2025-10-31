@@ -48,6 +48,7 @@ func init() {
 	viper.SetDefault("email.username", "")
 	viper.SetDefault("email.password", "")
 	viper.SetDefault("email.from", "")
+	viper.SetDefault("git.tokens", map[string]string{})
 }
 
 // initConfig reads in config file and ENV variables if set.

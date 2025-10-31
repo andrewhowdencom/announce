@@ -20,8 +20,9 @@ The application is configured using a YAML file located at `$XDG_CONFIG_HOME/ruf
 
 | Name | Description |
 | --- | --- |
-| `source.urls` | A list of URLs to fetch calls from. Both remote (`https://...`) and local (`file://...`) URLs are supported. |
+| `source.urls` | A list of URLs to fetch calls from. Remote (`https://...`), local (`file://...`) and git (`git://...`) URLs are supported. See the Git Sources section for more information. |
 | `slack.app_token` | The Slack app token to use for sending calls. |
+| `git.tokens` | A map of git providers to personal access tokens. Currently, only `github.com` is supported. |
 
 ### Example
 
@@ -30,11 +31,26 @@ source:
   urls:
     - "https://example.com/announcements.yaml"
     - "file:///path/to/local/announcements.yaml"
+    - "git://github.com/andrewhowdencom/ruf-example-announcements/tree/main/example.yaml"
 
 slack:
   app:
     token: ""
+
+git:
+  tokens:
+    github.com: "YOUR_GITHUB_TOKEN"
 ```
+
+### Git Sources
+
+The application supports fetching calls from Git repositories. The URL format is:
+
+`git://<repository>/tree/<refspec>/<file-path>`
+
+For example:
+
+`git://github.com/andrewhowdencom/ruf-example-announcements/tree/main/example.yaml`
 
 ### Slack Configuration
 
