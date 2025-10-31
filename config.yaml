@@ -6,6 +6,12 @@ source:
 worker:
   lookback_period: 24h
 
+git:
+  auth:
+    github.com:
+      username: ""
+      token: ""
+
 slack:
   app:
     token: ""
