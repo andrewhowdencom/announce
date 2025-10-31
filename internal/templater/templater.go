@@ -3,11 +3,13 @@ package templater
 import (
 	"bytes"
 	"text/template"
+
+	"github.com/Masterminds/sprig/v3"
 )
 
 // Render renders a template string.
 func Render(tmpl string) (string, error) {
-	t, err := template.New("").Parse(tmpl)
+	t, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmpl)
 	if err != nil {
 		return "", err
 	}

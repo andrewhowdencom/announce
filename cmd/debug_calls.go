@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/andrewhowdencom/ruf/internal/model"
-	"github.com/andrewhowdencom/ruf/internal/templater"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,22 +26,6 @@ var debugCallsCmd = &cobra.Command{
 				continue
 			}
 			allCalls = append(allCalls, calls...)
-		}
-
-		for _, call := range allCalls {
-			subject, err := templater.Render(call.Subject)
-			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Error rendering subject for call %s: %v\n", call.ID, err)
-			} else {
-				call.Subject = subject
-			}
-
-			content, err := templater.Render(call.Content)
-			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Error rendering content for call %s: %v\n", call.ID, err)
-			} else {
-				call.Content = content
-			}
 		}
 
 		output, err := json.MarshalIndent(allCalls, "", "  ")
