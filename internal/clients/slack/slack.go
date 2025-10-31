@@ -37,9 +37,9 @@ func (c *client) PostMessage(channel, author, subject, text string) (string, err
 		user, err := c.api.GetUserByEmail(author)
 		if err != nil {
 			// If the user is not found, fall back to the email address.
-			message = fmt.Sprintf("%s\n\n---\nAuthor: %s", message, author)
+			message = fmt.Sprintf("%s\n\n---\nThx: %s", message, author)
 		} else {
-			message = fmt.Sprintf("%s\n\n---\nAuthor: @%s", message, user.Name)
+			message = fmt.Sprintf("%s\n\n---\nThx: @%s", message, user.Name)
 		}
 	}
 
