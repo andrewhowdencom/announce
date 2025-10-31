@@ -137,7 +137,7 @@ func (w *Worker) processCall(call *model.Call) error {
 			switch dest.Type {
 			case "slack":
 				slog.Info("sending slack message", "call_id", call.ID, "channel", to, "scheduled_at", effectiveScheduledAt)
-				timestamp, err := w.slackClient.PostMessage(to, call.Author, call.Subject, call.Content)
+				channelID, timestamp, err := w.slackClient.PostMessage(to, call.Author, call.Subject, call.Content)
 				sentMessage := &datastore.SentMessage{
 					SourceID:     call.ID,
 					ScheduledAt:  effectiveScheduledAt,
@@ -153,6 +153,13 @@ func (w *Worker) processCall(call *model.Call) error {
 				} else {
 					sentMessage.Status = datastore.StatusSent
 					slog.Info("sent slack message", "call_id", call.ID, "channel", to, "scheduled_at", effectiveScheduledAt)
+
+					if call.Author != "" {
+						err := w.slackClient.NotifyAuthor(call.Author, channelID, timestamp, to)
+						if err != nil {
+							slog.Error("failed to send author notification", "error", err)
+						}
+					}
 				}
 
 				if err := w.store.AddSentMessage(call.Campaign.ID, call.ID, sentMessage); err != nil {

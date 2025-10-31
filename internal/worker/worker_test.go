@@ -34,9 +34,9 @@ func TestWorker_RunTick(t *testing.T) {
 	// Mock Slack client
 	slackClient := slack.NewMockClient()
 	var capturedSlackAuthor string
-	slackClient.PostMessageFunc = func(channel, author, subject, text string) (string, error) {
+	slackClient.PostMessageFunc = func(channel, author, subject, text string) (string, string, error) {
 		capturedSlackAuthor = author
-		return "", nil
+		return "C1234567890", "1234567890.123456", nil
 	}
 
 	// Mock Email client
@@ -93,6 +93,7 @@ func TestWorker_RunTick(t *testing.T) {
 
 	assert.Equal(t, "test@author.com", capturedSlackAuthor)
 	assert.Equal(t, "test@author.com", capturedEmailAuthor)
+	assert.Equal(t, 1, slackClient.NotifyAuthorCount)
 }
 
 func TestWorker_RunTickWithOldCall(t *testing.T) {

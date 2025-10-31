@@ -9,7 +9,8 @@ import (
 
 // Client is an interface that defines the methods for interacting with the Slack API.
 type Client interface {
-	PostMessage(channel, author, subject, text string) (string, error)
+	PostMessage(channel, author, subject, text string) (string, string, error)
+	NotifyAuthor(authorEmail, channelId, messageTimestamp, channelName string) error
 	DeleteMessage(channel, timestamp string) error
 	GetChannelID(channelName string) (string, error)
 }
@@ -27,7 +28,7 @@ func NewClient(token string) Client {
 }
 
 // PostMessage sends a message to a Slack channel.
-func (c *client) PostMessage(channel, author, subject, text string) (string, error) {
+func (c *client) PostMessage(channel, author, subject, text string) (string, string, error) {
 	message := text
 	if subject != "" {
 		message = fmt.Sprintf("*%s*\n%s", subject, text)
@@ -45,14 +46,50 @@ func (c *client) PostMessage(channel, author, subject, text string) (string, err
 
 	channelID, err := c.GetChannelID(channel)
 	if err != nil {
-		return "", fmt.Errorf("failed to get channel id: %w", err)
+		return "", "", fmt.Errorf("failed to get channel id: %w", err)
 	}
 
 	_, timestamp, err := c.api.PostMessage(channelID, slack.MsgOptionText(message, false))
 	if err != nil {
-		return "", fmt.Errorf("failed to post message: %w", err)
+		return "", "", fmt.Errorf("failed to post message: %w", err)
 	}
-	return timestamp, nil
+	return channelID, timestamp, nil
+}
+
+// NotifyAuthor sends a direct message to the author of a message with a permalink to the original message.
+func (c *client) NotifyAuthor(authorEmail, channelId, messageTimestamp, channelName string) error {
+	user, err := c.api.GetUserByEmail(authorEmail)
+	if err != nil {
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	// Open a direct message channel with the user.
+	im, _, _, err := c.api.OpenConversation(&slack.OpenConversationParameters{
+		Users: []string{user.ID},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open conversation: %w", err)
+	}
+
+	// Get the permalink for the original message.
+	permalink, err := c.api.GetPermalink(&slack.PermalinkParameters{
+		Channel: channelId,
+		Ts:      messageTimestamp,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get permalink: %w", err)
+	}
+
+	// Send the direct message.
+	if !strings.HasPrefix(channelName, "#") {
+		channelName = "#" + channelName
+	}
+	_, _, err = c.api.PostMessage(im.ID, slack.MsgOptionText(fmt.Sprintf("I have just sent your message to %s. You can view it here: %s", channelName, permalink), false))
+	if err != nil {
+		return fmt.Errorf("failed to post message: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteMessage deletes a message from a Slack channel.
