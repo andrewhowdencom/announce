@@ -25,6 +25,8 @@ calls:
     destinations:
       - type: "slack"
         to: ["#general"]
+    triggers:
+      - scheduled_at: "2025-01-01T12:00:00Z"
 `
 	validFile := filepath.Join(tmpdir, "valid.yaml")
 	if err := ioutil.WriteFile(validFile, []byte(validYAML), 0644); err != nil {
@@ -64,10 +66,11 @@ calls:
 calls:
   - subject: "Test Subject"
     content: "Test Content"
-    cron: "invalid cron"
     destinations:
       - type: "slack"
         to: ["#general"]
+    triggers:
+      - cron: "invalid cron"
 `
 	invalidCronFile := filepath.Join(tmpdir, "invalid_cron.yaml")
 	if err := ioutil.WriteFile(invalidCronFile, []byte(invalidCronYAML), 0644); err != nil {
@@ -82,6 +85,8 @@ calls:
     destinations:
       - type: "invalid"
         to: ["#general"]
+    triggers:
+      - scheduled_at: "2025-01-01T12:00:00Z"
 `
 	invalidDestinationFile := filepath.Join(tmpdir, "invalid_destination.yaml")
 	if err := ioutil.WriteFile(invalidDestinationFile, []byte(invalidDestinationYAML), 0644); err != nil {

@@ -25,11 +25,15 @@ calls:
       - type: slack
         to: ["#general"]
     content: "Hello, world!"
+    triggers:
+      - scheduled_at: "2025-01-01T12:00:00Z"
   - id: call-2
     destinations:
       - type: slack
         to: ["#random"]
     content: "This is a test."
+    triggers:
+      - cron: "0 * * * *"
 `
 	validFile := filepath.Join(tmpDir, "valid.yaml")
 	err = ioutil.WriteFile(validFile, []byte(validYAML), 0644)
@@ -56,7 +60,6 @@ calls:
 	expectedJSON := `[
 		{
 			"id": "call-1",
-			"scheduled_at": "0001-01-01T00:00:00Z",
 			"destinations": [
 				{
 					"type": "slack",
@@ -64,6 +67,11 @@ calls:
 				}
 			],
 			"content": "Hello, world!",
+			"triggers": [
+				{
+					"scheduled_at": "2025-01-01T12:00:00Z"
+				}
+			],
 			"campaign": {
 				"id": "valid",
 				"name": "` + validFile + `"
@@ -71,7 +79,6 @@ calls:
 		},
 		{
 			"id": "call-2",
-			"scheduled_at": "0001-01-01T00:00:00Z",
 			"destinations": [
 				{
 					"type": "slack",
@@ -79,6 +86,12 @@ calls:
 				}
 			],
 			"content": "This is a test.",
+			"triggers": [
+				{
+					"cron": "0 * * * *",
+					"scheduled_at": "0001-01-01T00:00:00Z"
+				}
+			],
 			"campaign": {
 				"id": "valid",
 				"name": "` + validFile + `"

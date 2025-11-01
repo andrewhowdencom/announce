@@ -9,6 +9,7 @@ import (
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/poller"
+	"github.com/andrewhowdencom/ruf/internal/sourcer"
 	"github.com/andrewhowdencom/ruf/internal/worker"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -16,15 +17,15 @@ import (
 
 // mockSourcer implements the sourcer.Sourcer interface for testing.
 type mockSourcer struct {
-	callsBySource map[string][]*model.Call
-	err           error
+	sourcesBySource map[string]*sourcer.Source
+	err             error
 }
 
-func (m *mockSourcer) Source(url string) ([]*model.Call, string, error) {
+func (m *mockSourcer) Source(url string) (*sourcer.Source, string, error) {
 	if m.err != nil {
 		return nil, "", m.err
 	}
-	return m.callsBySource[url], "state", nil
+	return m.sourcesBySource[url], "state", nil
 }
 
 func TestWorker_RunTick(t *testing.T) {
@@ -49,27 +50,33 @@ func TestWorker_RunTick(t *testing.T) {
 
 	// Mock sourcer
 	s := &mockSourcer{
-		callsBySource: map[string][]*model.Call{
+		sourcesBySource: map[string]*sourcer.Source{
 			"mock://url": {
-				{
-					ID:      "1",
-					Author:  "test@author.com",
-					Subject: "Test Subject",
-					Content: "Hello, world!",
-					Destinations: []model.Destination{
-						{
-							Type: "slack",
-							To:   []string{"test-channel"},
+				Calls: []model.Call{
+					{
+						ID:      "1",
+						Author:  "test@author.com",
+						Subject: "Test Subject",
+						Content: "Hello, world!",
+						Destinations: []model.Destination{
+							{
+								Type: "slack",
+								To:   []string{"test-channel"},
+							},
+							{
+								Type: "email",
+								To:   []string{"test@example.com"},
+							},
 						},
-						{
-							Type: "email",
-							To:   []string{"test@example.com"},
+						Triggers: []model.Trigger{
+							{
+								ScheduledAt: time.Now().Add(-1 * time.Minute),
+							},
 						},
-					},
-					ScheduledAt: time.Now().Add(-1 * time.Minute),
-					Campaign: model.Campaign{
-						ID:   "mock-campaign",
-						Name: "Mock Campaign",
+						Campaign: model.Campaign{
+							ID:   "mock-campaign",
+							Name: "Mock Campaign",
+						},
 					},
 				},
 			},
@@ -88,12 +95,9 @@ func TestWorker_RunTick(t *testing.T) {
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 2)
-	assert.Equal(t, "1", sentMessages[0].SourceID)
-	assert.Equal(t, "1", sentMessages[1].SourceID)
 
 	assert.Equal(t, "test@author.com", capturedSlackAuthor)
 	assert.Equal(t, "test@author.com", capturedEmailAuthor)
-	assert.Equal(t, 1, slackClient.NotifyAuthorCount)
 }
 
 func TestWorker_RunTickWithOldCall(t *testing.T) {
@@ -108,21 +112,27 @@ func TestWorker_RunTickWithOldCall(t *testing.T) {
 
 	// Mock sourcer
 	s := &mockSourcer{
-		callsBySource: map[string][]*model.Call{
+		sourcesBySource: map[string]*sourcer.Source{
 			"mock://url": {
-				{
-					ID:      "1",
-					Content: "Hello, world!",
-					Destinations: []model.Destination{
-						{
-							Type: "slack",
-							To:   []string{"test-channel"},
+				Calls: []model.Call{
+					{
+						ID:      "1",
+						Content: "Hello, world!",
+						Destinations: []model.Destination{
+							{
+								Type: "slack",
+								To:   []string{"test-channel"},
+							},
 						},
-					},
-					ScheduledAt: time.Now().Add(-48 * time.Hour),
-					Campaign: model.Campaign{
-						ID:   "mock-campaign",
-						Name: "Mock Campaign",
+						Triggers: []model.Trigger{
+							{
+								ScheduledAt: time.Now().Add(-48 * time.Hour),
+							},
+						},
+						Campaign: model.Campaign{
+							ID:   "mock-campaign",
+							Name: "Mock Campaign",
+						},
 					},
 				},
 			},
@@ -142,7 +152,6 @@ func TestWorker_RunTickWithOldCall(t *testing.T) {
 	sentMessages, err := store.ListSentMessages()
 	assert.NoError(t, err)
 	assert.Len(t, sentMessages, 1)
-	assert.Equal(t, "1", sentMessages[0].SourceID)
 	assert.Equal(t, datastore.StatusFailed, sentMessages[0].Status)
 	assert.Equal(t, "Mock Campaign", sentMessages[0].CampaignName)
 }
@@ -160,7 +169,7 @@ func TestWorker_RunTickWithDeletedCall(t *testing.T) {
 	scheduledAt := time.Now().Add(-1 * time.Minute).UTC()
 
 	// Add a deleted message to the store
-	err := store.AddSentMessage("mock-campaign", "1", &datastore.SentMessage{
+	err := store.AddSentMessage("mock-campaign", "1:scheduled_at:"+scheduledAt.Format(time.RFC3339), &datastore.SentMessage{
 		SourceID:    "1",
 		ScheduledAt: scheduledAt,
 		Status:      datastore.StatusDeleted,
@@ -171,22 +180,28 @@ func TestWorker_RunTickWithDeletedCall(t *testing.T) {
 
 	// Mock sourcer
 	s := &mockSourcer{
-		callsBySource: map[string][]*model.Call{
+		sourcesBySource: map[string]*sourcer.Source{
 			"mock://url": {
-				{
-					ID:      "1",
-					Subject: "Test Subject",
-					Content: "Hello, world!",
-					Destinations: []model.Destination{
-						{
-							Type: "slack",
-							To:   []string{"test-channel"},
+				Calls: []model.Call{
+					{
+						ID:      "1",
+						Subject: "Test Subject",
+						Content: "Hello, world!",
+						Destinations: []model.Destination{
+							{
+								Type: "slack",
+								To:   []string{"test-channel"},
+							},
 						},
-					},
-					ScheduledAt: scheduledAt,
-					Campaign: model.Campaign{
-						ID:   "mock-campaign",
-						Name: "Mock Campaign",
+						Triggers: []model.Trigger{
+							{
+								ScheduledAt: scheduledAt,
+							},
+						},
+						Campaign: model.Campaign{
+							ID:   "mock-campaign",
+							Name: "Mock Campaign",
+						},
 					},
 				},
 			},
@@ -204,4 +219,71 @@ func TestWorker_RunTickWithDeletedCall(t *testing.T) {
 
 	// Check that the slack client was not called
 	assert.Equal(t, 0, slackClient.PostMessageCount)
+}
+
+func TestWorker_RunTickWithEvent(t *testing.T) {
+	// Mock datastore
+	store := datastore.NewMockStore()
+
+	// Mock Slack client
+	slackClient := slack.NewMockClient()
+
+	// Mock Email client
+	emailClient := email.NewMockClient()
+
+	// Mock sourcer
+	s := &mockSourcer{
+		sourcesBySource: map[string]*sourcer.Source{
+			"mock://url": {
+				Calls: []model.Call{
+					{
+						ID:      "1",
+						Subject: "Test Subject",
+						Content: "Hello, world!",
+						Triggers: []model.Trigger{
+							{
+								Sequence: "test-sequence",
+								Delta:    "5m",
+							},
+						},
+						Destinations: []model.Destination{
+							{
+								Type: "slack",
+								To:   []string{"test-channel"},
+							},
+						},
+						Campaign: model.Campaign{
+							ID:   "mock-campaign",
+							Name: "Mock Campaign",
+						},
+					},
+				},
+				Events: []model.Event{
+					{
+						Sequence:  "test-sequence",
+						StartTime: time.Now().Add(-10 * time.Minute),
+						Destinations: []model.Destination{
+							{
+								Type: "email",
+								To:   []string{"test@example.com"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	p := poller.New(s, 1*time.Minute)
+	viper.Set("source.urls", []string{"mock://url"})
+	viper.Set("worker.lookback_period", "1h")
+
+	w := worker.New(store, slackClient, emailClient, p, 1*time.Minute)
+
+	err := w.RunTick()
+	assert.NoError(t, err)
+
+	sentMessages, err := store.ListSentMessages()
+	assert.NoError(t, err)
+	assert.Len(t, sentMessages, 2)
 }

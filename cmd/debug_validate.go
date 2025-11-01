@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/sourcer"
 	"github.com/andrewhowdencom/ruf/internal/validator"
 	"github.com/spf13/cobra"
@@ -27,12 +28,18 @@ var debugValidateCmd = &cobra.Command{
 		parser := sourcer.NewYAMLParser()
 		s := sourcer.NewSourcer(fetcher, parser)
 
-		calls, _, err := s.Source(uri)
+		source, _, err := s.Source(uri)
 		if err != nil {
 			return err
 		}
 
-		errs := validator.Validate(calls)
+		// Create a slice of pointers for validation
+		callsToValidate := make([]*model.Call, len(source.Calls))
+		for i := range source.Calls {
+			callsToValidate[i] = &source.Calls[i]
+		}
+
+		errs := validator.Validate(callsToValidate)
 		if len(errs) > 0 {
 			var errStrings []string
 			for _, err := range errs {
