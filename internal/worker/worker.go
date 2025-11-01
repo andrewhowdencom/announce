@@ -10,6 +10,7 @@ import (
 	"github.com/andrewhowdencom/ruf/internal/datastore"
 	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/poller"
+	"github.com/andrewhowdencom/ruf/internal/sourcer"
 	"github.com/andrewhowdencom/ruf/internal/templater"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/viper"
@@ -59,10 +60,12 @@ func (w *Worker) RunTick() error {
 	slog.Debug("running tick")
 	urls := viper.GetStringSlice("source.urls")
 	slog.Debug("polling for calls", "urls", urls)
-	calls, err := w.poller.Poll(urls)
+	sources, err := w.poller.Poll(urls)
 	if err != nil {
 		return err
 	}
+
+	calls := w.expandCalls(sources)
 
 	for _, call := range calls {
 		if err := w.processCall(call); err != nil {
@@ -73,24 +76,82 @@ func (w *Worker) RunTick() error {
 	return nil
 }
 
+// expandCalls takes a list of sources and expands the call definitions within them
+// into a flat list of concrete, scheduled calls based on their triggers.
+func (w *Worker) expandCalls(sources []*sourcer.Source) []*model.Call {
+	var expandedCalls []*model.Call
+
+	for _, source := range sources {
+		// Build an event map for the current source to allow for efficient lookups.
+		eventsBySequence := make(map[string][]model.Event)
+		for _, event := range source.Events {
+			eventsBySequence[event.Sequence] = append(eventsBySequence[event.Sequence], event)
+		}
+
+		for _, callDef := range source.Calls {
+			for _, trigger := range callDef.Triggers {
+				// Handle direct schedule triggers
+				if !trigger.ScheduledAt.IsZero() {
+					newCall := w.createCallFromDefinition(callDef)
+					newCall.ScheduledAt = trigger.ScheduledAt
+					newCall.ID = fmt.Sprintf("%s:scheduled_at:%s", callDef.ID, trigger.ScheduledAt.Format(time.RFC3339))
+					expandedCalls = append(expandedCalls, newCall)
+				}
+
+				// Handle cron triggers
+				if trigger.Cron != "" {
+					parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+					schedule, err := parser.Parse(trigger.Cron)
+					if err != nil {
+						slog.Error("failed to parse cron", "error", err, "cron", trigger.Cron)
+						continue
+					}
+					effectiveScheduledAt := schedule.Next(time.Now().Add(-2 * time.Minute)).Truncate(time.Minute)
+
+					newCall := w.createCallFromDefinition(callDef)
+					newCall.ScheduledAt = effectiveScheduledAt
+					newCall.ID = fmt.Sprintf("%s:cron:%s", callDef.ID, trigger.Cron)
+					expandedCalls = append(expandedCalls, newCall)
+				}
+
+				// Handle event sequence triggers
+				if trigger.Sequence != "" && trigger.Delta != "" {
+					if matchingEvents, ok := eventsBySequence[trigger.Sequence]; ok {
+						for _, event := range matchingEvents {
+							delta, err := time.ParseDuration(trigger.Delta)
+							if err != nil {
+								slog.Error("failed to parse delta", "error", err, "delta", trigger.Delta)
+								continue
+							}
+
+							newCall := w.createCallFromDefinition(callDef)
+							newCall.ScheduledAt = event.StartTime.Add(delta)
+							newCall.Destinations = append(newCall.Destinations, event.Destinations...)
+							newCall.ID = fmt.Sprintf("%s:sequence:%s:%s", callDef.ID, trigger.Sequence, event.StartTime.Format(time.RFC3339))
+							expandedCalls = append(expandedCalls, newCall)
+						}
+					}
+				}
+			}
+		}
+	}
+	return expandedCalls
+}
+
+// createCallFromDefinition creates a new call instance from a call definition,
+// ensuring that mutable fields like Destinations are deep-copied.
+func (w *Worker) createCallFromDefinition(def model.Call) *model.Call {
+	newCall := def // Start with a shallow copy
+	newCall.Destinations = make([]model.Destination, len(def.Destinations))
+	copy(newCall.Destinations, def.Destinations)
+	newCall.Triggers = nil // Triggers are not needed in the expanded call
+	return &newCall
+}
+
 func (w *Worker) processCall(call *model.Call) error {
 	slog.Debug("processing call", "call_id", call.ID)
 	now := time.Now()
-	var effectiveScheduledAt time.Time
-
-	if call.Cron != "" {
-		parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-		schedule, err := parser.Parse(call.Cron)
-		if err != nil {
-			return fmt.Errorf("failed to parse cron: %w", err)
-		}
-		// Find the last scheduled time before or at `now`.
-		effectiveScheduledAt = schedule.Next(now.Add(-2 * time.Minute)).Truncate(time.Minute)
-
-	} else {
-		effectiveScheduledAt = call.ScheduledAt
-	}
-	slog.Debug("calculated effective scheduled time", "call_id", call.ID, "effective_scheduled_at", effectiveScheduledAt)
+	effectiveScheduledAt := call.ScheduledAt
 
 	// Don't process calls scheduled for the future.
 	if now.Before(effectiveScheduledAt) {

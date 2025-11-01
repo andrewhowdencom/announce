@@ -8,6 +8,15 @@ type Destination struct {
 	To   []string `json:"to,omitempty" yaml:"to,omitempty"`
 }
 
+// Trigger represents a scheduling mechanism for a call.
+type Trigger struct {
+	ScheduledAt time.Time `json:"scheduled_at,omitempty" yaml:"scheduled_at,omitempty"`
+	Cron        string    `json:"cron,omitempty" yaml:"cron,omitempty"`
+	Recurring   bool      `json:"recurring,omitempty" yaml:"recurring,omitempty"`
+	Delta       string    `json:"delta,omitempty" yaml:"delta,omitempty"`
+	Sequence    string    `json:"sequence,omitempty" yaml:"sequence,omitempty"`
+}
+
 // Call represents a message to be sent to a destination.
 type Call struct {
 	ID           string        `json:"id" yaml:"id"`
@@ -15,21 +24,23 @@ type Call struct {
 	Subject      string        `json:"subject,omitempty" yaml:"subject,omitempty"`
 	Content      string        `json:"content" yaml:"content"`
 	Destinations []Destination `json:"destinations" yaml:"destinations"`
-	ScheduledAt  time.Time     `json:"scheduled_at" yaml:"scheduled_at"`
-	Cron         string        `json:"cron,omitempty" yaml:"cron,omitempty"`
-	Recurring    bool          `json:"recurring,omitempty" yaml:"recurring,omitempty"`
+	Triggers     []Trigger     `json:"triggers" yaml:"triggers"`
 
-	Campaign Campaign `json:"campaign" yaml:"campaign"`
+	Campaign Campaign `json:"campaign,omitempty" yaml:"campaign,omitempty"`
+
+	// Fields for expanded calls, not to be set in YAML
+	ScheduledAt time.Time `json:"-" yaml:"-"`
+}
+
+// Event represents an event invocation.
+type Event struct {
+	Destinations []Destination `json:"destinations,omitempty" yaml:"destinations,omitempty"`
+	Sequence     string        `json:"sequence" yaml:"sequence"`
+	StartTime    time.Time     `json:"start_time" yaml:"start_time"`
 }
 
 // Campaign represents a campaign.
 type Campaign struct {
 	ID   string `json:"id" yaml:"id"`
 	Name string `json:"name" yaml:"name"`
-}
-
-// Source represents a source file.
-type Source struct {
-	Campaign Campaign `json:"campaign" yaml:"campaign"`
-	Calls    []Call   `json:"calls" yaml:"calls"`
 }

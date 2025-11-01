@@ -13,6 +13,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Source represents a source file.
+type Source struct {
+	Campaign model.Campaign `json:"campaign" yaml:"campaign"`
+	Calls    []model.Call   `json:"calls" yaml:"calls"`
+	Events   []model.Event  `json:"events" yaml:"events"`
+}
+
 // Fetcher defines the interface for fetching content from a URL.
 type Fetcher interface {
 	Fetch(url string) ([]byte, string, error)
@@ -117,7 +124,7 @@ func (f *FileFetcher) Fetch(rawURL string) ([]byte, string, error) {
 
 // Parser defines the interface for parsing content into a list of calls.
 type Parser interface {
-	Parse(url string, data []byte) ([]*model.Call, error)
+	Parse(url string, data []byte) (*Source, error)
 }
 
 // YAMLParser is an implementation of Parser that parses YAML content.
@@ -129,17 +136,28 @@ func NewYAMLParser() *YAMLParser {
 }
 
 // Parse parses a YAML byte slice and returns a list of calls.
-func (p *YAMLParser) Parse(rawURL string, data []byte) ([]*model.Call, error) {
-	var s model.Source
+func (p *YAMLParser) Parse(rawURL string, data []byte) (*Source, error) {
+	var s Source
 	if err := yaml.Unmarshal(data, &s); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal yaml: %w", err)
 	}
 
+	p.fillCampaign(rawURL, &s)
+
+	// Add the campaign to each call.
+	for i := range s.Calls {
+		s.Calls[i].Campaign = s.Campaign
+	}
+
+	return &s, nil
+}
+
+func (p *YAMLParser) fillCampaign(rawURL string, s *Source) error {
 	// If the campaign isn't specified, we'll derive it from the filename.
 	if s.Campaign.ID == "" {
 		u, err := url.Parse(rawURL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse url %s: %w", rawURL, err)
+			return fmt.Errorf("failed to parse url %s: %w", rawURL, err)
 		}
 
 		// my-campaign.yaml -> my-campaign-yaml
@@ -152,24 +170,16 @@ func (p *YAMLParser) Parse(rawURL string, data []byte) ([]*model.Call, error) {
 	if s.Campaign.Name == "" {
 		u, err := url.Parse(rawURL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse url %s: %w", rawURL, err)
+			return fmt.Errorf("failed to parse url %s: %w", rawURL, err)
 		}
 		s.Campaign.Name = u.Path
 	}
-
-	// Add the campaign to each call.
-	calls := make([]*model.Call, 0, len(s.Calls))
-	for i := range s.Calls {
-		s.Calls[i].Campaign = s.Campaign
-		calls = append(calls, &s.Calls[i])
-	}
-
-	return calls, nil
+	return nil
 }
 
 // Sourcer is an interface that defines the methods for sourcing calls.
 type Sourcer interface {
-	Source(url string) ([]*model.Call, string, error)
+	Source(url string) (*Source, string, error)
 }
 
 // sourcer is the concrete implementation of the Sourcer interface.
@@ -187,16 +197,16 @@ func NewSourcer(fetcher Fetcher, parser Parser) Sourcer {
 }
 
 // Source fetches and parses calls from a URL.
-func (s *sourcer) Source(url string) ([]*model.Call, string, error) {
+func (s *sourcer) Source(url string) (*Source, string, error) {
 	data, state, err := s.fetcher.Fetch(url)
 	if err != nil {
 		return nil, "", err
 	}
 
-	calls, err := s.parser.Parse(url, data)
+	source, err := s.parser.Parse(url, data)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return calls, state, nil
+	return source, state, nil
 }

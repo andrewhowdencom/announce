@@ -66,6 +66,14 @@ To use the Slack integration, you'll need to create a Slack app and install it i
 
 The application expects the source YAML files to contain a top-level `calls` list. Optionally, a `campaign` can be specified. If a campaign is not specified, it will be derived from the filename.
 
+Each call must have a list of `triggers` that determine when the call should be sent. The following trigger types are available:
+
+- `scheduled_at`: A specific time to send the call.
+- `cron`: A cron expression for recurring calls.
+- `sequence` and `delta`: For event-driven call sequences.
+
+### Example
+
 ```yaml
 campaign:
   id: "my-campaign"
@@ -79,7 +87,8 @@ calls:
     - type: "slack"
       to:
         - "C1234567890"
-  scheduled_at: "2025-01-01T12:00:00Z"
+  triggers:
+    - scheduled_at: "2025-01-01T12:00:00Z"
 - id: "unique-id-2"
   subject: "Recurring hello!"
   content: "Hello, recurring world!"
@@ -87,9 +96,68 @@ calls:
     - type: "slack"
       to:
         - "C1234567890"
-  cron: "0 * * * *"
-  recurring: true
+  triggers:
+    - cron: "0 * * * *"
+      recurring: true
 ```
+
+## Event-Driven Call Sequences
+
+In addition to scheduled and recurring calls, the application also supports event-driven call sequences. This feature allows you to define a sequence of calls that are triggered by a specific event.
+
+To use this feature, you'll need to define a call with a trigger that has a `sequence` and a `delta`, and then create an `event` with a matching `sequence` and a `start_time`.
+
+- `sequence`: A unique identifier for the sequence.
+- `delta`: A duration string (e.g., "5m", "1h30m") that specifies when the call should be sent relative to the event's `start_time`.
+- `events`: A new top-level list in your source YAML file that contains a list of events.
+
+### Example
+
+```yaml
+campaign:
+  id: "product-launch"
+  name: "Product Launch"
+calls:
+- id: "launch-announcement-1"
+  subject: "We're live!"
+  content: "Our new product is now live! Check it out at..."
+  destinations:
+    - type: "slack"
+      to:
+        - "#general"
+  triggers:
+    - sequence: "product-launch-sequence"
+      delta: "5m"
+- id: "launch-announcement-2"
+  subject: "Don't miss out!"
+  content: "In case you missed it, our new product is now live! Check it out at..."
+  destinations:
+    - type: "slack"
+      to:
+        - "#marketing"
+  triggers:
+    - sequence: "product-launch-sequence"
+      delta: "1h"
+events:
+- sequence: "product-launch-sequence"
+  start_time: "2025-01-01T12:00:00Z"
+  destinations:
+    - type: "email"
+      to:
+        - "all-hands@example.com"
+```
+
+In this example, the two calls with the `sequence` "product-launch-sequence" will be triggered by the event with the same `sequence`. The first call will be sent 5 minutes after the event's `start_time`, and the second call will be sent 1 hour after. The destinations from the calls and the event will be merged, so the first call will be sent to the "#general" Slack channel and to "all-hands@example.com", and the second call will be sent to the "#marketing" Slack channel and to "all-hands@example.com".
+
+## Migrating from the Old Format
+
+The application provides a `migrate` command to help you update your old YAML files to the new `triggers` format. To use it, simply run:
+
+```bash
+ruf migrate /path/to/your/file.yaml
+```
+
+The command will print the migrated YAML to the console.
 
 ## Listing Sent Calls
 

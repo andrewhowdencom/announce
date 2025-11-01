@@ -21,12 +21,14 @@ var debugRenderCmd = &cobra.Command{
 		var allCalls []*model.Call
 
 		for _, url := range urls {
-			calls, _, err := s.Source(url)
+			source, _, err := s.Source(url)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error sourcing from %s: %v\n", url, err)
 				continue
 			}
-			allCalls = append(allCalls, calls...)
+			for i := range source.Calls {
+				allCalls = append(allCalls, &source.Calls[i])
+			}
 		}
 
 		callID := args[0]

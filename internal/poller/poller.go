@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/andrewhowdencom/ruf/internal/model"
 	"github.com/andrewhowdencom/ruf/internal/sourcer"
 )
 
@@ -25,22 +24,24 @@ func New(sourcer sourcer.Sourcer, interval time.Duration) *Poller {
 }
 
 // Poll checks for updates in the sources and returns the calls from the changed URLs.
-func (p *Poller) Poll(urls []string) ([]*model.Call, error) {
-	var allCalls []*model.Call
+func (p *Poller) Poll(urls []string) ([]*sourcer.Source, error) {
+	var allSources []*sourcer.Source
 	for _, url := range urls {
-		calls, err := p.pollURL(url)
+		source, err := p.pollURL(url)
 		if err != nil {
 			// If a source can't be found, we log the error and continue.
 			fmt.Printf("Error checking source %s: %v\n", url, err)
 			continue
 		}
-		allCalls = append(allCalls, calls...)
+		if source != nil {
+			allSources = append(allSources, source)
+		}
 	}
-	return allCalls, nil
+	return allSources, nil
 }
 
-func (p *Poller) pollURL(url string) ([]*model.Call, error) {
-	calls, state, err := p.sourcer.Source(url)
+func (p *Poller) pollURL(url string) (*sourcer.Source, error) {
+	source, state, err := p.sourcer.Source(url)
 	if err != nil {
 		return nil, err
 	}
@@ -50,5 +51,5 @@ func (p *Poller) pollURL(url string) ([]*model.Call, error) {
 	}
 
 	p.knownState[url] = state
-	return calls, nil
+	return source, nil
 }
