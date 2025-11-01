@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMigrateCmd(t *testing.T) {
+func TestMigrateV1Cmd(t *testing.T) {
 	// Create a temporary directory for test files.
 	tmpDir, err := ioutil.TempDir("", "ruf-test")
 	assert.NoError(t, err)
@@ -58,11 +58,11 @@ events:
 	err = ioutil.WriteFile(legacyFile, []byte(legacyYAML), 0644)
 	assert.NoError(t, err)
 
-	// Execute the `migrate` command, capturing stdout and stderr.
+	// Execute the `migrate v1` command, capturing stdout and stderr.
 	var stdout, stderr bytes.Buffer
 	rootCmd.SetOut(&stdout)
 	rootCmd.SetErr(&stderr)
-	rootCmd.SetArgs([]string{"migrate", legacyFile})
+	rootCmd.SetArgs([]string{"migrate", "v1", legacyFile})
 	err = rootCmd.Execute()
 	assert.NoError(t, err)
 

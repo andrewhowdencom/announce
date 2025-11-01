@@ -151,10 +151,10 @@ In this example, the two calls with the `sequence` "product-launch-sequence" wil
 
 ## Migrating from the Old Format
 
-The application provides a `migrate` command to help you update your old YAML files to the new `triggers` format. To use it, simply run:
+The application provides a `migrate` command to help you update your old YAML files to the new `triggers` format. To migrate from the v0 format to the v1 format, simply run:
 
 ```bash
-ruf migrate /path/to/your/file.yaml
+ruf migrate v1 /path/to/your/file.yaml
 ```
 
 The command will print the migrated YAML to the console.
