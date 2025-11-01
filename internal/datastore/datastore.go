@@ -2,12 +2,20 @@ package datastore
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/adrg/xdg"
 	"go.etcd.io/bbolt"
+)
+
+// Err* are common errors returned by the datastore.
+var (
+	ErrNotFound            = errors.New("not found")
+	ErrDBOperationFailed   = errors.New("db operation failed")
+	ErrSerializationFailed = errors.New("serialization failed")
 )
 
 var sentMessagesBucket = []byte("sent_messages")
@@ -55,7 +63,7 @@ type Store struct {
 func NewStore() (Storer, error) {
 	dbPath, err := xdg.DataFile("ruf/ruf.db")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get db path: %w", err)
+		return nil, fmt.Errorf("%w: failed to get db path: %w", ErrDBOperationFailed, err)
 	}
 
 	return newStore(dbPath)
@@ -69,15 +77,18 @@ func NewTestStore(dbPath string) (Storer, error) {
 func newStore(dbPath string) (Storer, error) {
 	db, err := bbolt.Open(dbPath, 0600, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open db: %w", err)
+		return nil, fmt.Errorf("%w: failed to open db: %w", ErrDBOperationFailed, err)
 	}
 
 	err = db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(sentMessagesBucket)
-		return err
+		if err != nil {
+			return fmt.Errorf("%w: failed to create bucket: %w", ErrDBOperationFailed, err)
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create bucket: %w", err)
+		return nil, err
 	}
 
 	return &Store{db: db}, nil
@@ -90,16 +101,21 @@ func (s *Store) Close() error {
 
 // AddSentMessage adds a new sent message to the store.
 func (s *Store) AddSentMessage(campaignID, callID string, sm *SentMessage) error {
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err := s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
 		sm.ID = s.generateID(campaignID, callID, sm.Type, sm.Destination)
 
 		buf, err := json.Marshal(sm)
 		if err != nil {
-			return fmt.Errorf("failed to marshal sent message: %w", err)
+			return fmt.Errorf("%w: failed to marshal sent message: %w", ErrSerializationFailed, err)
 		}
-		return b.Put([]byte(sm.ID), buf)
+
+		if err := b.Put([]byte(sm.ID), buf); err != nil {
+			return fmt.Errorf("%w: failed to put sent message: %w", ErrDBOperationFailed, err)
+		}
+		return nil
 	})
+	return err
 }
 
 // HasBeenSent checks if a message with the given sourceID and scheduledAt time has a 'sent' or 'deleted' status.
@@ -113,7 +129,7 @@ func (s *Store) HasBeenSent(campaignID, callID, destType, destination string) (b
 		if v != nil {
 			var sm SentMessage
 			if err := json.Unmarshal(v, &sm); err != nil {
-				return fmt.Errorf("failed to unmarshal sent message: %w", err)
+				return fmt.Errorf("%w: failed to unmarshal sent message: %w", ErrSerializationFailed, err)
 			}
 			if sm.Status == StatusSent || sm.Status == StatusDeleted {
 				sent = true
@@ -122,7 +138,7 @@ func (s *Store) HasBeenSent(campaignID, callID, destType, destination string) (b
 		return nil
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to check if message has been sent: %w", err)
+		return false, fmt.Errorf("%w: failed to check if message has been sent: %w", ErrDBOperationFailed, err)
 	}
 	return sent, nil
 }
@@ -142,17 +158,21 @@ func (s *Store) ListSentMessages() ([]*SentMessage, error) {
 	var sentMessages []*SentMessage
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(sentMessagesBucket)
-		return b.ForEach(func(k, v []byte) error {
+		err := b.ForEach(func(k, v []byte) error {
 			var sm SentMessage
 			if err := json.Unmarshal(v, &sm); err != nil {
-				return fmt.Errorf("failed to unmarshal sent message: %w", err)
+				return fmt.Errorf("%w: failed to unmarshal sent message: %w", ErrSerializationFailed, err)
 			}
 			sentMessages = append(sentMessages, &sm)
 			return nil
 		})
+		if err != nil {
+			return fmt.Errorf("%w: failed to iterate over sent messages: %w", ErrDBOperationFailed, err)
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list sent messages: %w", err)
+		return nil, err
 	}
 	return sentMessages, nil
 }
@@ -164,10 +184,10 @@ func (s *Store) GetSentMessage(id string) (*SentMessage, error) {
 		b := tx.Bucket(sentMessagesBucket)
 		v := b.Get([]byte(id))
 		if v == nil {
-			return fmt.Errorf("message with id '%s' not found", id)
+			return fmt.Errorf("%w: message with id '%s'", ErrNotFound, id)
 		}
 		if err := json.Unmarshal(v, &sm); err != nil {
-			return fmt.Errorf("failed to unmarshal sent message: %w", err)
+			return fmt.Errorf("%w: failed to unmarshal sent message: %w", ErrSerializationFailed, err)
 		}
 		return nil
 	})
@@ -183,20 +203,24 @@ func (s *Store) DeleteSentMessage(id string) error {
 		b := tx.Bucket(sentMessagesBucket)
 		v := b.Get([]byte(id))
 		if v == nil {
-			return fmt.Errorf("message with id '%s' not found", id)
+			return fmt.Errorf("%w: message with id '%s'", ErrNotFound, id)
 		}
 
 		var sm SentMessage
 		if err := json.Unmarshal(v, &sm); err != nil {
-			return fmt.Errorf("failed to unmarshal sent message: %w", err)
+			return fmt.Errorf("%w: failed to unmarshal sent message: %w", ErrSerializationFailed, err)
 		}
 
 		sm.Status = StatusDeleted
 
 		buf, err := json.Marshal(sm)
 		if err != nil {
-			return fmt.Errorf("failed to marshal sent message: %w", err)
+			return fmt.Errorf("%w: failed to marshal sent message: %w", ErrSerializationFailed, err)
 		}
-		return b.Put([]byte(id), buf)
+
+		if err := b.Put([]byte(id), buf); err != nil {
+			return fmt.Errorf("%w: failed to put sent message: %w", ErrDBOperationFailed, err)
+		}
+		return nil
 	})
 }

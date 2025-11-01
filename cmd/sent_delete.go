@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/andrewhowdencom/ruf/internal/clients/slack"
@@ -25,6 +26,9 @@ var sentDeleteCmd = &cobra.Command{
 
 		sm, err := store.GetSentMessage(callID)
 		if err != nil {
+			if errors.Is(err, datastore.ErrNotFound) {
+				return fmt.Errorf("could not find a call with ID '%s'", callID)
+			}
 			return fmt.Errorf("failed to get sent message: %w", err)
 		}
 
